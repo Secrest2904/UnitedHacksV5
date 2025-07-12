@@ -137,7 +137,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     // --- HELPER FUNCTIONS ---
 
-<<<<<<< HEAD
         panel.webview.html = getWebviewContent(panel.webview, context.extensionUri);
         panel.webview.onDidReceiveMessage(async message => {
             if (message.type === 'EXPLAIN_SELECTED_CODE') {
@@ -174,8 +173,6 @@ export function activate(context: vscode.ExtensionContext) {
     /**
      * Retrieves the stored API key or prompts the user to enter one.
      */
-=======
->>>>>>> d1fe31951aa9ccd66be9042f7f5d335695d17d8c
     async function getApiKey(): Promise<string | undefined> {
         let apiKey = await context.secrets.get(API_SECRET_KEY_STORE);
         if (!apiKey) {
@@ -217,7 +214,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
 
-<<<<<<< HEAD
     function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(extensionUri, 'media', 'main.js')
@@ -286,7 +282,6 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', 'idle', 'magmastern.png')
         );
 
-=======
     async function generateQuiz(explanationText: string, apiKey: string): Promise<any | null> {
         const openai = new OpenAI({ baseURL: "https://openrouter.ai/api/v1/", apiKey: apiKey });
         try {
@@ -327,7 +322,6 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     function getQuizWebviewContent() {
->>>>>>> d1fe31951aa9ccd66be9042f7f5d335695d17d8c
         return `
         <!DOCTYPE html>
         <html lang="en">
@@ -347,9 +341,7 @@ export function activate(context: vscode.ExtensionContext) {
             </style>
         </head>
         <body>
-<<<<<<< HEAD
             <img src="${imageUri}" alt="Code Sensei Avatar" />
-=======
             <h1>Code Comprehension Quiz</h1>
             <div id="quiz-container"></div>
             <button id="submit-btn">Submit Answers</button>
@@ -402,7 +394,6 @@ export function activate(context: vscode.ExtensionContext) {
                     vscode.postMessage({ command: 'submitAnswers', answers: answers });
                 });
             </script>
->>>>>>> d1fe31951aa9ccd66be9042f7f5d335695d17d8c
         </body>
         </html>`;
     }
