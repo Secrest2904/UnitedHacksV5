@@ -1,6 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { getRandomPoseUri } from './avatar/avatarManager';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -10,7 +11,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(`editor.action.clipboardPasteAction`, async() => {
 			const editor = vscode.window.activeTextEditor;
-			if (!editor) return;
+			if (!editor) {
+				return;
+			}
 
 			const clipboardContent = await vscode.env.clipboard.readText();
 
@@ -23,11 +26,41 @@ export function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
+	context.subscriptions.push(
+	vscode.commands.registerCommand('code-sensei.showAvatar', () => {
+		const panel = vscode.window.createWebviewPanel(
+		'aiMentorPanel',
+		'AI Mentor',
+		vscode.ViewColumn.Two,
+		{
+			enableScripts: true
+		}
+		);
+
+		const pose = getRandomPoseUri('idle', context.extensionUri);
+		const imageUri = panel.webview.asWebviewUri(pose.fileUri);
+
+		panel.webview.html = getWebviewContent(imageUri.toString(), pose.alt);
+	})
+	);
+
+	function getWebviewContent(imageSrc: string, alt: string) {
+	return `
+		<html>
+		<body style="background:transparent;">
+			<div style="position:fixed;bottom:24px;right:24px;z-index:999;">
+			<img src="${imageSrc}" alt="${alt}" width="200" />
+			</div>
+		</body>
+		</html>
+	`;
+	}
+
 	let writtenCode: string[] = [];
 	let pastedCode: String[] = [];
 
 	function indexPastedCode(content: string) {
-		pastedCode.push(content)
+		pastedCode.push(content);
 	}
 
 	vscode.workspace.onDidChangeTextDocument(event => {
@@ -44,7 +77,9 @@ export function activate(context: vscode.ExtensionContext) {
 		const writtenLength = writtenCode.join('').length;
 		const pastedLength = pastedCode.join('').length;
 
-		if (writtenLength + pastedLength === 0) return 0; //avoids division by 0 -> throws error
+		if (writtenLength + pastedLength === 0) {
+			return 0;
+		}; //avoids division by 0 -> throws error
 
 		return writtenLength / (writtenLength + pastedLength);
 	}
@@ -80,9 +115,3 @@ export function activate(context: vscode.ExtensionContext) {
 
 // This method is called when your extension is deactivated
 export function deactivate() {}
-
-
-
-
-
-
