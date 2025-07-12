@@ -1,117 +1,295 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { getRandomPoseUri } from './avatar/avatarManager';
+// import axios from 'axios'; // No longer needed
+import OpenAI from 'openai'; // Import the new OpenAI SDK
+import dotenv from 'dotenv';
+dotenv.config()
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+const apiKey = process.env.MY_API_KEY;
+
+
+const MISTRAL_API_KEY_SECRET_KEY = 'lmfaooooo'; // We'll keep the same secret key name
+
 export function activate(context: vscode.ExtensionContext) {
 
-	// RIGHTGOODY CODE START-
-	context.subscriptions.push(
-		vscode.commands.registerCommand(`editor.action.clipboardPasteAction`, async() => {
-			const editor = vscode.window.activeTextEditor;
-			if (!editor) {
-				return;
-			}
+    console.log('Congratulations, your extension "code-sensei" is now active!');
 
-			const clipboardContent = await vscode.env.clipboard.readText();
+    let writtenCode: string[] = [];
+    let pastedCode: string[] = [];
+    let isPasting = false;
 
-			await editor.edit(editBuilder => {
-				editBuilder.replace(editor.selection, clipboardContent);
-			});
+    context.subscriptions.push(
+        vscode.commands.registerCommand('editor.action.clipboardPasteAction', async () => {
+            console.log('PASTE COMMAND TRIGGERED.');
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                return vscode.commands.executeCommand('default:paste');
+            }
 
-			//index pasted code-
-			indexPastedCode(clipboardContent);
-		})
-	);
+            const clipboardContent = await vscode.env.clipboard.readText();
 
-	context.subscriptions.push(
-	vscode.commands.registerCommand('code-sensei.showAvatar', () => {
-		const panel = vscode.window.createWebviewPanel(
-		'aiMentorPanel',
-		'AI Mentor',
-		vscode.ViewColumn.Two,
-		{
-			enableScripts: true
-		}
-		);
+            isPasting = true;
+            await editor.edit(editBuilder => {
+                editBuilder.replace(editor.selection, clipboardContent);
+            });
+            isPasting = false;
 
-		const pose = getRandomPoseUri('idle', context.extensionUri);
-		const imageUri = panel.webview.asWebviewUri(pose.fileUri);
+            indexPastedCode(clipboardContent);
 
-		panel.webview.html = getWebviewContent(imageUri.toString(), pose.alt);
-	})
-	);
+            if (!clipboardContent.trim()) {
+                console.log('Paste is empty, skipping explanation.');
+                return;
+            }
 
-	function getWebviewContent(imageSrc: string, alt: string) {
-	return `
-		<html>
-		<body style="background:transparent;">
-			<div style="position:fixed;bottom:24px;right:24px;z-index:999;">
-			<img src="${imageSrc}" alt="${alt}" width="200" />
-			</div>
-		</body>
-		</html>
-	`;
-	}
+            const apiKey = await getApiKey(context);
+            if (!apiKey) {
+                return;
+            }
 
-	let writtenCode: string[] = [];
-	let pastedCode: String[] = [];
+            try {
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: "Code Sensei: Generating explanation...",
+                    cancellable: true
+                }, async (progress, token) => {
+                    progress.report({ increment: 0 });
+                    const explanation = await getCodeExplanation(clipboardContent, apiKey);
 
-	function indexPastedCode(content: string) {
-		pastedCode.push(content);
-	}
+                    if (token.isCancellationRequested) return;
 
-	vscode.workspace.onDidChangeTextDocument(event => {
-		if (event.contentChanges.length) {
-			event.contentChanges.forEach(change => {
-				if (change.text && change.text.length < 1000) {
-					writtenCode.push(change.text);
-				}
-			});
-		}
-	});
+                    progress.report({ increment: 100 });
 
-	function calculateRatio(): number {
-		const writtenLength = writtenCode.join('').length;
-		const pastedLength = pastedCode.join('').length;
+                    if (explanation) {
+                        await showExplanationInChunks(explanation);
+                    } else if (!token.isCancellationRequested) {
+                        vscode.window.showErrorMessage('Failed to get an explanation for the pasted code.');
+                    }
+                });
+            } catch (error) {
+                console.error('Error during withProgress explanation flow:', error);
+                vscode.window.showErrorMessage('An error occurred while fetching the explanation.');
+            }
+        })
+    );
 
-		if (writtenLength + pastedLength === 0) {
-			return 0;
-		}; //avoids division by 0 -> throws error
+    function indexPastedCode(content: string) {
+        if(content.trim().length > 0) {
+            pastedCode.push(content);
+        }
+    }
 
-		return writtenLength / (writtenLength + pastedLength);
-	}
+    vscode.workspace.onDidChangeTextDocument(event => {
+        if (isPasting) {
+            return;
+        }
+        if (event.contentChanges.length > 0 && event.reason !== vscode.TextDocumentChangeReason.Undo && event.reason !== vscode.TextDocumentChangeReason.Redo) {
+            event.contentChanges.forEach(change => {
+                if (change.text.length > 0) {
+                    console.log(`TYPING DETECTED: ${change.text}`);
+                    writtenCode.push(change.text);
+                }
+            });
+        }
+    });
 
-	const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    function calculateRatio(): number {
+        const writtenLength = writtenCode.join('').length;
+        const pastedLength = pastedCode.join('').length;
+        const totalLength = writtenLength + pastedLength;
+        if (totalLength === 0) {
+            return 1;
+        }
+        return writtenLength / totalLength;
+    }
 
-	function updateStatusBar() {
-		const ratio = calculateRatio();
-		const percentage = (ratio * 100).toFixed(1);
-		statusBar.text = `✍️ Hand-Written code: ${percentage}%`;
-		statusBar.show();
-	}
+    const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    context.subscriptions.push(statusBar);
 
-	setInterval(updateStatusBar, 100); //update every 100 ms
+    function updateStatusBar() {
+        const ratio = calculateRatio();
+        const percentage = (ratio * 100).toFixed(1);
+        statusBar.text = `✍️ Hand-Written: ${percentage}%`;
+        statusBar.tooltip = `Ratio of typed vs. pasted code.`;
+        statusBar.show();
+    }
 
+    console.log('STATUS BAR: Initializing...');
+    updateStatusBar();
+    const intervalId = setInterval(updateStatusBar, 1000);
+    context.subscriptions.push({ dispose: () => clearInterval(intervalId) });
 
-
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "code-sensei" is now active!');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('code-sensei.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from code-sensei!');
-	});
-
-	context.subscriptions.push(disposable);
+    const disposable = vscode.commands.registerCommand('code-sensei.helloWorld', () => {
+        vscode.window.showInformationMessage('Hello World from Code Sensei!');
+    });
+    context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
+    const path = require('path');
+    const fs = require('fs');
+
+    const showAvatar = vscode.commands.registerCommand('code-sensei.showAvatar', () => {
+        const panel = vscode.window.createWebviewPanel(
+            'codeSenseiAvatar',
+            'Code Sensei',
+            vscode.ViewColumn.Beside,
+            {
+                enableScripts: true,
+                localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')],
+            }
+        );
+
+        const idleFolderPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'default_skin', 'idle');
+        const idleDiskPath = path.join(context.extensionPath, 'media', 'default_skin', 'idle');
+
+        // Read files from folder
+        let images: string[] = [];
+        try {
+            images = fs.readdirSync(idleDiskPath).filter((file: string) => file.endsWith('.png'));
+        } catch (e) {
+            vscode.window.showErrorMessage('Could not load avatar images.');
+            return;
+        }
+
+        if (images.length === 0) {
+            vscode.window.showErrorMessage('No avatar images found.');
+            return;
+        }
+
+        const randomImage = images[Math.floor(Math.random() * images.length)];
+        const imageUri = vscode.Uri.joinPath(idleFolderPath, randomImage);
+        const webviewUri = panel.webview.asWebviewUri(imageUri);
+
+        panel.webview.html = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+        <meta charset="UTF-8">
+        <style>
+            html, body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            overflow: hidden;
+            }
+            #avatar-container {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            z-index: 9999;
+            display: inline-block;
+            align-items: flex-end;
+            justify-content: flex-end;
+            pointer-events: none; /* prevents interaction blocking */
+            }
+            img {
+            max-height: 240px;
+            width: auto;
+            user-select: none;
+            pointer-events: none;
+            opacity: 0.95;
+            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.4));
+            }
+        </style>
+        </head>
+        <body>
+        <div id="avatar-container">
+            <img src="${webviewUri}" alt="Code Sensei Avatar" />
+        </div>
+        </body>
+        </html>`;
+
+    });
+
+    context.subscriptions.push(showAvatar);
+
+
+}
+
+// --- Helper Functions ---
+
+async function getApiKey(context: vscode.ExtensionContext): Promise<string | undefined> {
+    let apiKey = await context.secrets.get(apiKey);
+    if (!apiKey) {
+        console.log('API Key not found. Prompting user.');
+        apiKey = await vscode.window.showInputBox({
+            prompt: 'Please enter your OpenRouter API Key',
+            password: true,
+            ignoreFocusOut: true,
+            placeHolder: 'sk-or-...'
+        });
+        if (apiKey) {
+            await context.secrets.store(apiKey, apiKey);
+            vscode.window.showInformationMessage('Code Sensei: API Key stored successfully!');
+        } else {
+            vscode.window.showErrorMessage('Code Sensei: API Key not provided. Code explanation is disabled.');
+            return undefined;
+        }
+    }
+    return apiKey;
+}
+
+/**
+ * Sends the code to the OpenRouter API using the OpenAI SDK.
+ * @param code The code snippet to explain.
+ * @param apiKey The user's OpenRouter API key.
+ * @returns The explanation text or null if an error occurs.
+ */
+async function getCodeExplanation(code: string, apiKey: string): Promise<string | null> {
+    // --- THIS FUNCTION IS NOW UPDATED ---
+    
+    // 1. Initialize the OpenAI client to point to OpenRouter
+    const openai = new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1/",
+        apiKey: apiKey,
+        defaultHeaders: {
+            // Optional headers to identify your app on OpenRouter rankings
+            //"HTTP-Referer": "", // Replace with your repo
+            //"X-Title": "Code Sensei VSCode Extension", // Replace with your app name
+        },
+    });
+
+    try {
+        // 2. Call the chat completions endpoint with the new model
+        const completion = await openai.chat.completions.create({
+            model: "tngtech/deepseek-r1t2-chimera:free", // The new model you requested
+            messages: [
+                {
+                    role: "system",
+                    content: "You are an expert programmer. Explain the following code snippet clearly and concisely. Break down your explanation into short, easy-to-understand paragraphs."
+                },
+                {
+                    role: "user",
+                    content: `Explain this code:\n\n\`\`\`\n${code}\n\`\`\``
+                }
+            ],
+        });
+
+        // 3. Return the response content
+        return completion.choices[0]?.message?.content || null;
+
+    } catch (error) {
+        console.error("OpenRouter API Call Error:", error);
+        // The OpenAI SDK throws detailed errors, so we can display them.
+        if (error instanceof OpenAI.APIError) {
+             vscode.window.showErrorMessage(`API Error: ${error.status} - ${error.name}. ${error.message}`);
+        } else {
+             vscode.window.showErrorMessage('An unknown error occurred while contacting the API.');
+        }
+        return null;
+    }
+}
+
+async function showExplanationInChunks(explanation: string) {
+    // Split by two newlines to better separate paragraphs
+    const chunks = explanation.split('\n\n').filter(p => p.trim().length > 0);
+    for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const isLastChunk = i === chunks.length - 1;
+        const buttonText = isLastChunk ? 'Done' : 'Next';
+        const choice = await vscode.window.showInformationMessage(chunk, { modal: true }, buttonText);
+        if (!choice || choice === 'Done') {
+            break;
+        }
+    }
+}
+
 export function deactivate() {}

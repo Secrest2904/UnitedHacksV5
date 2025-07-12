@@ -10,6 +10,7 @@
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:code-sensei.helloWorld",
     "onCommand:code-sensei.showAvatar"
   ],
@@ -36,10 +37,9 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@types/dotenv": "^6.1.1",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^20.19.7",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
+    "@types/node": "20.x",
     "@types/vscode": "^1.102.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
@@ -50,7 +50,9 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "axios": "^1.10.0",
+    "dotenv": "^17.2.0",
+    "openai": "^5.9.0",
+    "shadcn": "^2.9.0"
   }
 }
