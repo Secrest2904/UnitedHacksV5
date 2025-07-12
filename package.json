@@ -10,9 +10,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:code-sensei.helloWorld",
-    "onCommand:code-sensei.showAvatar"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -24,6 +22,10 @@
       {
         "command": "code-sensei.showAvatar",
         "title": "Show AI Mentor"
+      },
+      {
+        "command": "code-sensei.clearApiKey",
+        "title": "Code Sensei: Clear Stored API Key"
       }
     ]
   },
