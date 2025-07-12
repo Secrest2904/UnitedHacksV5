@@ -257,8 +257,6 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }
     }
-<<<<<<< HEAD
-=======
     function getAvatarWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         const imageUri = webview.asWebviewUri(
             vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', 'idle', 'idle.png')
@@ -344,7 +342,6 @@ export function activate(context: vscode.ExtensionContext) {
         </html>
         `;
     }
->>>>>>> dcdc18a33fab02087f32c488ba02d2e25f0f5fe1
 
     async function generateQuiz(explanationText: string, apiKey: string): Promise<any | null> {
         const openai = new OpenAI({ baseURL: "https://openrouter.ai/api/v1/", apiKey });
@@ -383,12 +380,6 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage('Could not grade the quiz.');
             return null;
         }
-    }
-
-    function getAvatarWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
-        const imageUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', 'idle', 'idle.png')
-        );
     }
 
     function getQuizWebviewContent() {
