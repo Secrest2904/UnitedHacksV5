@@ -287,17 +287,57 @@ export function activate(context: vscode.ExtensionContext) {
 
     function getAvatarWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         const imageUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', 'idle', 'magmastern.png')
+            vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', 'idle', 'idle.png')
         );
-        // your existing avatar HTML goes here
+
         return `
         <!DOCTYPE html>
         <html lang="en">
-        <head><meta charset="UTF-8"/></head>
-        <body style="background:#1e1e1e;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
-          <img src="${imageUri}" alt="Avatar" />
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Code Sensei</title>
+            <style>
+                body {
+                    background: #1e1e1e;
+                    color: white;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    margin: 0;
+                }
+                img {
+                    width: 200px;
+                    height: auto;
+                    margin-bottom: 20px;
+                    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.4));
+                }
+                button {
+                    padding: 10px 20px;
+                    font-size: 16px;
+                    border: none;
+                    border-radius: 5px;
+                    background-color: #007acc;
+                    color: white;
+                    cursor: pointer;
+                }
+                button:hover {
+                    background-color: #005a9e;
+                }
+            </style>
+        </head>
+        <body>
+            <img src="${imageUri}" alt="Code Sensei Avatar" />
+            <button onclick="vscode.postMessage({ command: 'explainSelectedCode' })">Explain Selected Code</button>
+            <script>
+                const vscode = acquireVsCodeApi();
+            </script>
         </body>
-        </html>`;
+        </html>
+        `;
     }
 
     async function generateQuiz(explanationText: string, apiKey: string): Promise<any | null> {
