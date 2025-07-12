@@ -21,14 +21,15 @@
         "title": "Hello World"
       },
       {
-      "command": "code-sensei.showAvatar",
-      "title": "Show AI Mentor"
+        "command": "code-sensei.showAvatar",
+        "title": "Show AI Mentor"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
+    "build-ui": "node scripts/build-ui.js",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -37,12 +38,19 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.19.7",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
     "@types/vscode": "^1.102.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.6",
     "eslint": "^9.25.1",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   }
 }
