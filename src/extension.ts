@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
-// import axios from 'axios'; // No longer needed
-import OpenAI from 'openai'; // Import the new OpenAI SDK
+import OpenAI from 'openai';
 import dotenv from 'dotenv';
-dotenv.config()
+import * as path from 'path';
+import * as fs from 'fs';
 
-const apiKey = process.env.MY_API_KEY;
+dotenv.config();
 
-
-const MISTRAL_API_KEY_SECRET_KEY = 'lmfaooooo'; // We'll keep the same secret key name
+// This key is used to securely store and retrieve the API key from VS Code's secret storage.
+const API_SECRET_KEY_STORE = 'codesensei_api_key';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -17,16 +17,20 @@ export function activate(context: vscode.ExtensionContext) {
     let pastedCode: string[] = [];
     let isPasting = false;
 
+    // --- PASTE DETECTION AND EXPLANATION ---
+
     context.subscriptions.push(
         vscode.commands.registerCommand('editor.action.clipboardPasteAction', async () => {
             console.log('PASTE COMMAND TRIGGERED.');
             const editor = vscode.window.activeTextEditor;
             if (!editor) {
+                // If no active editor, fall back to the default paste command.
                 return vscode.commands.executeCommand('default:paste');
             }
 
             const clipboardContent = await vscode.env.clipboard.readText();
 
+            // Manually perform the paste action
             isPasting = true;
             await editor.edit(editBuilder => {
                 editBuilder.replace(editor.selection, clipboardContent);
@@ -40,9 +44,9 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
-            const apiKey = await getApiKey(context);
+            const apiKey = await getApiKey();
             if (!apiKey) {
-                return;
+                return; // User cancelled or no key was provided
             }
 
             try {
@@ -52,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
                     cancellable: true
                 }, async (progress, token) => {
                     progress.report({ increment: 0 });
-                    const explanation = await getCodeExplanation(clipboardContent, apiKey);
+                    const explanation = await getCodeExplanation(clipboardContent, apiKey, token);
 
                     if (token.isCancellationRequested) return;
 
@@ -72,31 +76,35 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     function indexPastedCode(content: string) {
-        if(content.trim().length > 0) {
+        if (content.trim().length > 0) {
             pastedCode.push(content);
         }
     }
 
+    // --- TYPING DETECTION ---
+
     vscode.workspace.onDidChangeTextDocument(event => {
         if (isPasting) {
-            return;
+            return; // Ignore text changes that come from our own paste command
         }
+        // Ensure changes are from typing and not undo/redo actions
         if (event.contentChanges.length > 0 && event.reason !== vscode.TextDocumentChangeReason.Undo && event.reason !== vscode.TextDocumentChangeReason.Redo) {
             event.contentChanges.forEach(change => {
                 if (change.text.length > 0) {
-                    console.log(`TYPING DETECTED: ${change.text}`);
                     writtenCode.push(change.text);
                 }
             });
         }
     });
 
+    // --- STATUS BAR ---
+
     function calculateRatio(): number {
         const writtenLength = writtenCode.join('').length;
         const pastedLength = pastedCode.join('').length;
         const totalLength = writtenLength + pastedLength;
         if (totalLength === 0) {
-            return 1;
+            return 1; // Start at 100% written
         }
         return writtenLength / totalLength;
     }
@@ -112,19 +120,11 @@ export function activate(context: vscode.ExtensionContext) {
         statusBar.show();
     }
 
-    console.log('STATUS BAR: Initializing...');
     updateStatusBar();
     const intervalId = setInterval(updateStatusBar, 1000);
     context.subscriptions.push({ dispose: () => clearInterval(intervalId) });
 
-    const disposable = vscode.commands.registerCommand('code-sensei.helloWorld', () => {
-        vscode.window.showInformationMessage('Hello World from Code Sensei!');
-    });
-    context.subscriptions.push(disposable);
-}
-
-    const path = require('path');
-    const fs = require('fs');
+    // --- AVATAR WEBVIEW ---
 
     const showAvatar = vscode.commands.registerCommand('code-sensei.showAvatar', () => {
         const panel = vscode.window.createWebviewPanel(
@@ -140,17 +140,16 @@ export function activate(context: vscode.ExtensionContext) {
         const idleFolderPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'default_skin', 'idle');
         const idleDiskPath = path.join(context.extensionPath, 'media', 'default_skin', 'idle');
 
-        // Read files from folder
         let images: string[] = [];
         try {
             images = fs.readdirSync(idleDiskPath).filter((file: string) => file.endsWith('.png'));
         } catch (e) {
-            vscode.window.showErrorMessage('Could not load avatar images.');
+            vscode.window.showErrorMessage('Could not load avatar images. Check the media folder.');
             return;
         }
 
         if (images.length === 0) {
-            vscode.window.showErrorMessage('No avatar images found.');
+            vscode.window.showErrorMessage('No avatar images found in the media folder.');
             return;
         }
 
@@ -158,137 +157,132 @@ export function activate(context: vscode.ExtensionContext) {
         const imageUri = vscode.Uri.joinPath(idleFolderPath, randomImage);
         const webviewUri = panel.webview.asWebviewUri(imageUri);
 
-        panel.webview.html = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-        <meta charset="UTF-8">
-        <style>
-            html, body {
-            margin: 0;
-            padding: 0;
-            background: transparent;
-            overflow: hidden;
-            }
-            #avatar-container {
-            position: fixed;
-            bottom: 16px;
-            right: 16px;
-            z-index: 9999;
-            display: inline-block;
-            align-items: flex-end;
-            justify-content: flex-end;
-            pointer-events: none; /* prevents interaction blocking */
-            }
-            img {
-            max-height: 240px;
-            width: auto;
-            user-select: none;
-            pointer-events: none;
-            opacity: 0.95;
-            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.4));
-            }
-        </style>
-        </head>
-        <body>
-        <div id="avatar-container">
-            <img src="${webviewUri}" alt="Code Sensei Avatar" />
-        </div>
-        </body>
-        </html>`;
-
+        panel.webview.html = getAvatarWebviewContent(webviewUri);
     });
 
     context.subscriptions.push(showAvatar);
 
 
-}
+    // --- HELPER FUNCTIONS (Now inside `activate` to access `context`) ---
 
-// --- Helper Functions ---
+    /**
+     * Retrieves the stored API key or prompts the user to enter one.
+     */
+    async function getApiKey(): Promise<string | undefined> {
+        let apiKey = await context.secrets.get(API_SECRET_KEY_STORE);
+        if (!apiKey) {
+            console.log('API Key not found. Prompting user.');
+            apiKey = await vscode.window.showInputBox({
+                prompt: 'Please enter your OpenRouter API Key for Code Sensei',
+                password: true,
+                ignoreFocusOut: true,
+                placeHolder: 'sk-or-...'
+            });
+            if (apiKey) {
+                await context.secrets.store(API_SECRET_KEY_STORE, apiKey);
+                vscode.window.showInformationMessage('Code Sensei: API Key stored successfully!');
+            } else {
+                vscode.window.showErrorMessage('Code Sensei: API Key not provided. Code explanation is disabled.');
+                return undefined;
+            }
+        }
+        return apiKey;
+    }
 
-async function getApiKey(context: vscode.ExtensionContext): Promise<string | undefined> {
-    let apiKey = await context.secrets.get(apiKey);
-    if (!apiKey) {
-        console.log('API Key not found. Prompting user.');
-        apiKey = await vscode.window.showInputBox({
-            prompt: 'Please enter your OpenRouter API Key',
-            password: true,
-            ignoreFocusOut: true,
-            placeHolder: 'sk-or-...'
+    /**
+     * Sends the code to the OpenRouter API and returns the explanation.
+     */
+    async function getCodeExplanation(code: string, apiKey: string, token: vscode.CancellationToken): Promise<string | null> {
+        const openai = new OpenAI({
+            baseURL: "https://openrouter.ai/api/v1/",
+            apiKey: apiKey,
         });
-        if (apiKey) {
-            await context.secrets.store(apiKey, apiKey);
-            vscode.window.showInformationMessage('Code Sensei: API Key stored successfully!');
-        } else {
-            vscode.window.showErrorMessage('Code Sensei: API Key not provided. Code explanation is disabled.');
-            return undefined;
+
+        try {
+            const completion = await openai.chat.completions.create({
+                model: "tngtech/deepseek-r1t2-chimera:free",
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are an expert programmer. Explain the following code snippet clearly and concisely. Break down your explanation into short, easy-to-understand paragraphs."
+                    },
+                    {
+                        role: "user",
+                        content: `Explain this code:\n\n\`\`\`\n${code}\n\`\`\``
+                    }
+                ],
+            });
+
+            if (token.isCancellationRequested) {
+                return null;
+            }
+
+            return completion.choices[0]?.message?.content || null;
+
+        } catch (error) {
+            console.error("OpenRouter API Call Error:", error);
+            if (error instanceof OpenAI.APIError) {
+                 vscode.window.showErrorMessage(`API Error: ${error.status} - ${error.name}. ${error.message}`);
+            } else {
+                 vscode.window.showErrorMessage('An unknown error occurred while contacting the API.');
+            }
+            return null;
         }
     }
-    return apiKey;
-}
 
-/**
- * Sends the code to the OpenRouter API using the OpenAI SDK.
- * @param code The code snippet to explain.
- * @param apiKey The user's OpenRouter API key.
- * @returns The explanation text or null if an error occurs.
- */
-async function getCodeExplanation(code: string, apiKey: string): Promise<string | null> {
-    // --- THIS FUNCTION IS NOW UPDATED ---
-    
-    // 1. Initialize the OpenAI client to point to OpenRouter
-    const openai = new OpenAI({
-        baseURL: "https://openrouter.ai/api/v1/",
-        apiKey: apiKey,
-        defaultHeaders: {
-            // Optional headers to identify your app on OpenRouter rankings
-            //"HTTP-Referer": "", // Replace with your repo
-            //"X-Title": "Code Sensei VSCode Extension", // Replace with your app name
-        },
-    });
+    /**
+     * Displays the explanation in a series of modal messages.
+     */
+    async function showExplanationInChunks(explanation: string) {
+        // Split by one or more newlines to create paragraphs
+        const chunks = explanation.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+        for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            const isLastChunk = i === chunks.length - 1;
+            const buttonText = isLastChunk ? 'Done' : 'Next';
+            const choice = await vscode.window.showInformationMessage(chunk, { modal: true }, buttonText);
+            
+            if (!choice || choice === 'Done') {
+                break; // User clicked Done or closed the dialog
+            }
+        }
+    }
 
-    try {
-        // 2. Call the chat completions endpoint with the new model
-        const completion = await openai.chat.completions.create({
-            model: "tngtech/deepseek-r1t2-chimera:free", // The new model you requested
-            messages: [
-                {
-                    role: "system",
-                    content: "You are an expert programmer. Explain the following code snippet clearly and concisely. Break down your explanation into short, easy-to-understand paragraphs."
-                },
-                {
-                    role: "user",
-                    content: `Explain this code:\n\n\`\`\`\n${code}\n\`\`\``
+    /**
+     * Generates the HTML content for the avatar webview.
+     */
+    function getAvatarWebviewContent(webviewUri: vscode.Uri) {
+        return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Code Sensei</title>
+            <style>
+                html, body {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: transparent;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                 }
-            ],
-        });
-
-        // 3. Return the response content
-        return completion.choices[0]?.message?.content || null;
-
-    } catch (error) {
-        console.error("OpenRouter API Call Error:", error);
-        // The OpenAI SDK throws detailed errors, so we can display them.
-        if (error instanceof OpenAI.APIError) {
-             vscode.window.showErrorMessage(`API Error: ${error.status} - ${error.name}. ${error.message}`);
-        } else {
-             vscode.window.showErrorMessage('An unknown error occurred while contacting the API.');
-        }
-        return null;
-    }
-}
-
-async function showExplanationInChunks(explanation: string) {
-    // Split by two newlines to better separate paragraphs
-    const chunks = explanation.split('\n\n').filter(p => p.trim().length > 0);
-    for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
-        const isLastChunk = i === chunks.length - 1;
-        const buttonText = isLastChunk ? 'Done' : 'Next';
-        const choice = await vscode.window.showInformationMessage(chunk, { modal: true }, buttonText);
-        if (!choice || choice === 'Done') {
-            break;
-        }
+                img {
+                    max-width: 100%;
+                    max-height: 100%;
+                    object-fit: contain;
+                    user-select: none;
+                    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.4));
+                }
+            </style>
+        </head>
+        <body>
+            <img src="${webviewUri}" alt="Code Sensei Avatar" />
+        </body>
+        </html>`;
     }
 }
 
