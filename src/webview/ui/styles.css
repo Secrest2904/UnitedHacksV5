@@ -1,0 +1,23 @@
+#avatar-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  cursor: pointer;
+  user-select: none;
+  text-align: center;
+}
+
+.speech-bubble {
+  background-color: white;
+  border: 2px solid #888;
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+  margin-bottom: 8px;
+  font-size: 14px;
+  max-width: 220px;
+  word-wrap: break-word;
+  position: relative;
+  display: inline-block;
+}

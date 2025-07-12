@@ -10,7 +10,12 @@
     "Other"
   ],
   "activationEvents": [
+<<<<<<< HEAD
     "onStartupFinished"
+=======
+    "onCommand:code-sensei.helloWorld",
+    "onCommand:code-sensei.showAvatar"
+>>>>>>> 59d69b8a72562b14a7905d1a4910e8e107803ad1
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -18,6 +23,10 @@
       {
         "command": "code-sensei.helloWorld",
         "title": "Hello World"
+      },
+      {
+      "command": "code-sensei.showAvatar",
+      "title": "Show AI Mentor"
       }
     ]
   },
@@ -31,7 +40,11 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
+<<<<<<< HEAD
     "@types/node": "20.x",
+=======
+    "@types/node": "^20.19.7",
+>>>>>>> 59d69b8a72562b14a7905d1a4910e8e107803ad1
     "@types/vscode": "^1.102.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
@@ -39,8 +52,11 @@
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.25.1",
     "typescript": "^5.8.3"
+<<<<<<< HEAD
   },
   "dependencies": {
     "axios": "^1.10.0"
+=======
+>>>>>>> 59d69b8a72562b14a7905d1a4910e8e107803ad1
   }
 }
