@@ -6,8 +6,15 @@ import * as fs from 'fs';
 const API_SECRET_KEY_STORE = 'codesensei_api_key';
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Congratulations, your extension "code-sensei" is now active!');
 
+    console.log('Congratulations, your extension "code-sensei" is now active!');
+  
+    context.subscriptions.push(
+        vscode.commands.registerCommand('code-sensei.clearApiKey', async () => {
+            await context.secrets.delete(API_SECRET_KEY_STORE);
+            vscode.window.showInformationMessage('Code Sensei: Stored API Key has been cleared.');
+        })
+    );
     // --- STATE VARIABLES ---
     let writtenCode: string[] = [];
     let pastedCode: string[] = [];
@@ -19,23 +26,15 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('editor.action.clipboardPasteAction', async () => {
             const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                return vscode.commands.executeCommand('default:paste');
-            }
+            if (!editor) { return vscode.commands.executeCommand('default:paste'); }
             const clipboardContent = await vscode.env.clipboard.readText();
             isPasting = true;
-            await editor.edit(editBuilder => {
-                editBuilder.replace(editor.selection, clipboardContent);
-            });
+            await editor.edit(editBuilder => { editBuilder.replace(editor.selection, clipboardContent); });
             isPasting = false;
             indexPastedCode(clipboardContent);
-            if (!clipboardContent.trim()) {
-                return;
-            }
+            if (!clipboardContent.trim()) { return; }
             const apiKey = await getApiKey();
-            if (!apiKey) {
-                return;
-            }
+            if (!apiKey) { return; }
 
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
@@ -43,9 +42,7 @@ export function activate(context: vscode.ExtensionContext) {
                 cancellable: true
             }, async (progress, token) => {
                 const explanation = await getCodeExplanation(clipboardContent, apiKey, token);
-                if (token.isCancellationRequested) {
-                    return;
-                }
+                if (token.isCancellationRequested) return;
                 if (explanation) {
                     lastExplanation = explanation;
                     await showExplanationInChunks(explanation);
@@ -57,23 +54,15 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     function indexPastedCode(content: string) {
-        if (content.trim().length > 0) {
-            pastedCode.push(content);
-        }
+        if (content.trim().length > 0) { pastedCode.push(content); }
     }
 
     // --- TYPING DETECTION ---
     vscode.workspace.onDidChangeTextDocument(event => {
-        if (isPasting) {
-            return;
-        }
-        if (event.contentChanges.length > 0 &&
-            event.reason !== vscode.TextDocumentChangeReason.Undo &&
-            event.reason !== vscode.TextDocumentChangeReason.Redo) {
+        if (isPasting) { return; }
+        if (event.contentChanges.length > 0 && event.reason !== vscode.TextDocumentChangeReason.Undo && event.reason !== vscode.TextDocumentChangeReason.Redo) {
             event.contentChanges.forEach(change => {
-                if (change.text.length > 0) {
-                    writtenCode.push(change.text);
-                }
+                if (change.text.length > 0) { writtenCode.push(change.text); }
             });
         }
     });
@@ -81,7 +70,6 @@ export function activate(context: vscode.ExtensionContext) {
     // --- STATUS BAR ---
     const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     context.subscriptions.push(statusBar);
-
     function updateStatusBar() {
         const writtenLength = writtenCode.join('').length;
         const pastedLength = pastedCode.join('').length;
@@ -90,12 +78,13 @@ export function activate(context: vscode.ExtensionContext) {
         statusBar.text = `✍️ Hand-Written: ${(ratio * 100).toFixed(1)}%`;
         statusBar.show();
     }
-
     updateStatusBar();
+    // THE FIX IS HERE: Wrap the clearInterval call in a disposable object.
     const intervalId = setInterval(updateStatusBar, 1000);
     context.subscriptions.push({ dispose: () => clearInterval(intervalId) });
 
-    // --- AVATAR WEBVIEW ---
+
+    // --- AVATAR WEBVIEW (Unchanged) ---
     const showAvatar = vscode.commands.registerCommand(
         'code-sensei.showAvatar',
         () => {
@@ -147,29 +136,25 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(showAvatar);
 
     // --- QUIZ FEATURE ---
-    context.subscriptions.push(
-        vscode.commands.registerCommand('code-sensei.startQuiz', async () => {
-            if (!lastExplanation) {
-                vscode.window.showErrorMessage("No code explanation available to generate a quiz from.");
-                return;
-            }
-            const apiKey = await getApiKey();
-            if (!apiKey) {
-                return;
-            }
+    context.subscriptions.push(vscode.commands.registerCommand('code-sensei.startQuiz', async () => {
+        if (!lastExplanation) {
+            vscode.window.showErrorMessage("No code explanation available to generate a quiz from.");
+            return;
+        }
+        const apiKey = await getApiKey();
+        if (!apiKey) return;
 
-            await vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: "Generating Quiz...",
-            }, async () => {
-                const quizData = await generateQuiz(lastExplanation, apiKey);
-                if (quizData && quizData.questions) {
-                    quizQuestions = quizData.questions;
-                    createQuizWebview(quizData);
-                }
-            });
-        })
-    );
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "Generating Quiz...",
+        }, async () => {
+            const quizData = await generateQuiz(lastExplanation, apiKey);
+            if (quizData && quizData.questions) {
+                quizQuestions = quizData.questions;
+                createQuizWebview(quizData);
+            }
+        });
+    }));
 
     function createQuizWebview(quizData: any) {
         const panel = vscode.window.createWebviewPanel(
@@ -206,40 +191,25 @@ export function activate(context: vscode.ExtensionContext) {
     async function getApiKey(): Promise<string | undefined> {
         let apiKey = await context.secrets.get(API_SECRET_KEY_STORE);
         if (!apiKey) {
-            apiKey = await vscode.window.showInputBox({
-                prompt: 'Please enter your OpenRouter API Key',
-                password: true,
-                ignoreFocusOut: true,
-                placeHolder: 'sk-or-...'
-            });
-            if (apiKey) {
-                await context.secrets.store(API_SECRET_KEY_STORE, apiKey);
-            } else {
-                vscode.window.showErrorMessage('API Key not provided.');
-                return undefined;
-            }
+            apiKey = await vscode.window.showInputBox({ prompt: 'Please enter your OpenRouter API Key', password: true, ignoreFocusOut: true, placeHolder: 'sk-or-...' });
+            if (apiKey) { await context.secrets.store(API_SECRET_KEY_STORE, apiKey); }
+            else { vscode.window.showErrorMessage('API Key not provided.'); return undefined; }
         }
         return apiKey;
     }
 
     async function getCodeExplanation(code: string, apiKey: string, token: vscode.CancellationToken): Promise<string | null> {
-        const openai = new OpenAI({ baseURL: "https://openrouter.ai/api/v1/", apiKey });
+        const openai = new OpenAI({ baseURL: "https://openrouter.ai/api/v1/", apiKey: apiKey });
         try {
             const completion = await openai.chat.completions.create({
                 model: "tngtech/deepseek-r1t2-chimera:free",
-                messages: [
-                    { role: "system", content: "You are an expert programmer. Explain the following code snippet clearly and concisely." },
-                    { role: "user", content: `Explain this code:\n\n\`\`\`\n${code}\n\`\`\`` }
-                ],
+                messages: [{ role: "system", content: "You are an expert programmer. Explain the following code snippet clearly and concisely." }, { role: "user", content: `Explain this code:\n\n\`\`\`\n${code}\n\`\`\`` }],
             });
             return token.isCancellationRequested ? null : completion.choices[0]?.message?.content || null;
         } catch (error) {
             console.error("OpenRouter API Call Error:", error);
-            if (error instanceof OpenAI.APIError) {
-                vscode.window.showErrorMessage(`API Error: ${error.status} - ${error.name}. ${error.message}`);
-            } else {
-                vscode.window.showErrorMessage('An unknown error occurred while contacting the API.');
-            }
+            if (error instanceof OpenAI.APIError) { vscode.window.showErrorMessage(`API Error: ${error.status} - ${error.name}. ${error.message}`); }
+            else { vscode.window.showErrorMessage('An unknown error occurred while contacting the API.'); }
             return null;
         }
     }
@@ -251,71 +221,13 @@ export function activate(context: vscode.ExtensionContext) {
             const isLastChunk = i === chunks.length - 1;
             const buttonText = isLastChunk ? 'Start Quiz' : 'Next';
             const choice = await vscode.window.showInformationMessage(chunk, { modal: true }, buttonText);
-            if (!choice) {
-                return;
-            }
+            if (!choice) { return; }
             if (choice === 'Start Quiz') {
                 vscode.commands.executeCommand('code-sensei.startQuiz');
                 break;
             }
         }
     }
-
-    function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
-        const scriptUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(extensionUri, 'media', 'main.js')
-        );
-        const imageUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', 'idle', 'magmastern.png')
-        );
-        return /* html */ `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Code Sensei UI</title>
-            <style>
-                body {
-                    margin: 0;
-                    padding: 0;
-                    background-color: #1e1e1e;
-                    color: white;
-                    font-family: sans-serif;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: flex-start;
-                }
-                #avatar-container {
-                    margin-top: 1rem;
-                    text-align: center;
-                }
-                #root {
-                    width: 100%;
-                    max-width: 600px;
-                    margin-top: 2rem;
-                }
-                img {
-                    max-width: 100%;
-                    max-height: 250px;
-                    object-fit: contain;
-                    user-select: none;
-                    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.4));
-                }
-            </style>
-        </head>
-        <body>
-            <div id="avatar-container">
-                <img src="${imageUri}" alt="Code Sensei Avatar" />
-            </div>
-            <div id="root"></div>
-            <script type="module" src="${scriptUri}"></script>
-        </body>
-        </html>
-        `;
-    }
-
     function getAvatarWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         const imageUri = webview.asWebviewUri(
             vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', 'idle', 'idle.png')
@@ -372,18 +284,18 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     async function generateQuiz(explanationText: string, apiKey: string): Promise<any | null> {
-        const openai = new OpenAI({ baseURL: "https://openrouter.ai/api/v1/", apiKey });
+        const openai = new OpenAI({ baseURL: "https://openrouter.ai/api/v1/", apiKey: apiKey });
         try {
             const completion = await openai.chat.completions.create({
                 model: "tngtech/deepseek-r1t2-chimera:free",
-                response_format: { type: "json_object" },
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are a quiz generation expert. Based on the following code explanation, create a quiz with 3-4 questions (1 mcq, 1 fill-in-the-blank, 1 coding). Respond with ONLY a valid JSON object based on this structure: {"questions":[{"type":"mcq"|"fill-in-the-blank"|"coding","question":"...","options":["..."],"answer":"..."}]}`
-                    },
-                    { role: "user", content: explanationText }
-                ],
+                response_format: { type: "json_object" }, 
+                messages: [{
+                    role: "system",
+                    content: `You are a quiz generation expert. Based on the following code explanation, create a quiz with 3-4 questions (1 mcq, 1 fill-in-the-blank, 1 coding). Respond with ONLY a valid JSON object based on this structure: {"questions": [{"type": "mcq" | "fill-in-the-blank" | "coding", "question": "...", "options": ["..."], "answer": "..."}]}`
+                }, {
+                    role: "user",
+                    content: explanationText
+                }],
             });
             return JSON.parse(completion.choices[0]?.message?.content || 'null');
         } catch (error) {
@@ -394,7 +306,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     async function gradeQuiz(questions: any[], userAnswers: any, apiKey: string): Promise<{ score: string; feedback: string } | null> {
-        const openai = new OpenAI({ baseURL: "https://openrouter.ai/api/v1/", apiKey });
+        const openai = new OpenAI({ baseURL: "https://openrouter.ai/api/v1/", apiKey: apiKey });
         const gradingPrompt = `You are a teaching assistant. Grade the following quiz based on the provided questions and the user's answers. Provide a final score as a fraction (e.g., "2/3") and a single sentence of encouraging feedback. Questions and Correct Answers: ${JSON.stringify(questions, null, 2)} User's Answers: ${JSON.stringify(userAnswers, null, 2)} Respond in a JSON object with two keys: "score" and "feedback".`;
         try {
             const completion = await openai.chat.completions.create({
@@ -410,7 +322,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
 
-    function getQuizWebviewContent(): string {
+    function getQuizWebviewContent() {
         return `
         <!DOCTYPE html>
         <html lang="en">
@@ -430,26 +342,29 @@ export function activate(context: vscode.ExtensionContext) {
             </style>
         </head>
         <body>
-            <img src="\${imageUri}" alt="Code Sensei Avatar" />
             <h1>Code Comprehension Quiz</h1>
             <div id="quiz-container"></div>
             <button id="submit-btn">Submit Answers</button>
+
             <script>
                 const vscode = acquireVsCodeApi();
                 const quizContainer = document.getElementById('quiz-container');
                 const submitBtn = document.getElementById('submit-btn');
+
                 window.addEventListener('message', event => {
                     const message = event.data;
                     if (message.command === 'startQuiz') {
                         renderQuiz(message.data.questions);
                     }
                 });
+
                 function renderQuiz(questions) {
                     quizContainer.innerHTML = '';
                     questions.forEach((q, index) => {
                         const block = document.createElement('div');
                         block.className = 'question-block';
                         let content = \`<h3>Question \${index + 1}: \${q.question}</h3>\`;
+
                         if (q.type === 'mcq') {
                             q.options.forEach(opt => {
                                 content += \`<label><input type="radio" name="q\${index}" value="\${opt}"> \${opt}</label>\`;
@@ -463,10 +378,11 @@ export function activate(context: vscode.ExtensionContext) {
                         quizContainer.appendChild(block);
                     });
                 }
+
                 submitBtn.addEventListener('click', () => {
-                    const answers: any = {};
+                    const answers = {};
                     const inputs = quizContainer.querySelectorAll('input, textarea');
-                    inputs.forEach((input: any) => {
+                    inputs.forEach(input => {
                         if (input.type === 'radio') {
                             if (input.checked) {
                                 answers[input.name] = input.value;
@@ -475,7 +391,7 @@ export function activate(context: vscode.ExtensionContext) {
                             answers[input.name] = input.value;
                         }
                     });
-                    vscode.postMessage({ command: 'submitAnswers', answers });
+                    vscode.postMessage({ command: 'submitAnswers', answers: answers });
                 });
             </script>
         </body>
