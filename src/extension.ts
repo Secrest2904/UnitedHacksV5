@@ -109,7 +109,38 @@ export function activate(context: vscode.ExtensionContext) {
             // now `panel` is in scope
             panel.webview.html = getAvatarWebviewContent(panel.webview, context.extensionUri);
             panel.webview.onDidReceiveMessage(async message => {
-                // handle messages from avatar webview…
+                if (message.command === 'explainSelectedCode') {
+                    const editor = vscode.window.activeTextEditor;
+                    if (!editor) {
+                        vscode.window.showErrorMessage('No active editor found.');
+                        return;
+                    }
+                    const selectedCode = editor.document.getText(editor.selection);
+                    if (!selectedCode.trim()) {
+                        vscode.window.showErrorMessage('Please select some code to explain.');
+                        return;
+                    }
+                    const apiKey = await getApiKey();
+                    if (!apiKey) {
+                        return;
+                    }
+                    await vscode.window.withProgress({
+                        location: vscode.ProgressLocation.Notification,
+                        title: "Code Sensei: Generating explanation...",
+                        cancellable: true
+                    }, async (progress, token) => {
+                        const explanation = await getCodeExplanation(selectedCode, apiKey, token);
+                        if (token.isCancellationRequested) {
+                            return;
+                        }
+                        if (explanation) {
+                            lastExplanation = explanation;
+                            await showExplanationInChunks(explanation);
+                        } else {
+                            vscode.window.showErrorMessage('Failed to get an explanation for the selected code.');
+                        }
+                    });
+                }
             });
         }
     );
