@@ -110,11 +110,7 @@ export function activate(context: vscode.ExtensionContext) {
             panel.webview.html = getAvatarWebviewContent(panel.webview, context.extensionUri);
             panel.webview.onDidReceiveMessage(async message => {
                 if (message.command === 'explainSelectedCode') {
-                    const editor = vscode.window.activeTextEditor;
-                    if (!editor) {
-                        vscode.window.showErrorMessage('No active editor found.');
-                        return;
-                    }
+                    const editor = vscode.window.activeTextEditor!;
                     const selectedCode = editor.document.getText(editor.selection);
                     if (!selectedCode.trim()) {
                         vscode.window.showErrorMessage('Please select some code to explain.');
@@ -341,7 +337,7 @@ export function activate(context: vscode.ExtensionContext) {
                     margin: 0;
                 }
                 img {
-                    width: 200px;
+                    width: 1000px;
                     height: auto;
                     margin-bottom: 20px;
                     filter: drop-shadow(0 2px 5px rgba(0,0,0,0.4));
