@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
-// import axios from 'axios'; // No longer needed
 import OpenAI from 'openai'; // Import the new OpenAI SDK
 import dotenv from 'dotenv';
-dotenv.config()
+dotenv.config();
 
 const apiKey = process.env.MY_API_KEY;
 
@@ -121,7 +120,6 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage('Hello World from Code Sensei!');
     });
     context.subscriptions.push(disposable);
-}
 
     const path = require('path');
     const fs = require('fs');
@@ -207,24 +205,23 @@ export function activate(context: vscode.ExtensionContext) {
 // --- Helper Functions ---
 
 async function getApiKey(context: vscode.ExtensionContext): Promise<string | undefined> {
-    let apiKey = await context.secrets.get(apiKey);
-    if (!apiKey) {
-        console.log('API Key not found. Prompting user.');
-        apiKey = await vscode.window.showInputBox({
+    let key = await context.secrets.get(MISTRAL_API_KEY_SECRET_KEY);
+    if (!key) {
+        key = await vscode.window.showInputBox({
             prompt: 'Please enter your OpenRouter API Key',
             password: true,
             ignoreFocusOut: true,
             placeHolder: 'sk-or-...'
         });
-        if (apiKey) {
-            await context.secrets.store(apiKey, apiKey);
+        if (key) {
+            await context.secrets.store(MISTRAL_API_KEY_SECRET_KEY, key);
             vscode.window.showInformationMessage('Code Sensei: API Key stored successfully!');
         } else {
             vscode.window.showErrorMessage('Code Sensei: API Key not provided. Code explanation is disabled.');
             return undefined;
         }
     }
-    return apiKey;
+    return key;
 }
 
 /**
