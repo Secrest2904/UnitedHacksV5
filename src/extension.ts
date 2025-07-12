@@ -157,7 +157,32 @@ export function activate(context: vscode.ExtensionContext) {
         const imageUri = vscode.Uri.joinPath(idleFolderPath, randomImage);
         const webviewUri = panel.webview.asWebviewUri(imageUri);
 
-        panel.webview.html = getAvatarWebviewContent(webviewUri);
+        panel.webview.html = getWebviewContent(panel.webview, context.extensionUri);
+        panel.webview.onDidReceiveMessage(async message => {
+            if (message.type === 'EXPLAIN_SELECTED_CODE') {
+                const editor = vscode.window.activeTextEditor;
+                if (!editor) {
+                    vscode.window.showErrorMessage('No active text editor found.');
+                    return;
+                }
+
+                const selectedCode = editor.document.getText(editor.selection);
+                if (!selectedCode.trim()) {
+                    vscode.window.showWarningMessage('Please select some code in the editor first.');
+                    return;
+                }
+
+                const apiKey = await getApiKey();
+                if (!apiKey) return;
+
+                const explanation = await getCodeExplanation(selectedCode, apiKey, new vscode.CancellationTokenSource().token);
+                if (explanation) {
+                    await showExplanationInChunks(explanation);
+                } else {
+                    vscode.window.showErrorMessage('Failed to generate explanation.');
+                }
+            }
+        });
     });
 
     context.subscriptions.push(showAvatar);
@@ -248,10 +273,74 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
 
+    function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+        const scriptUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(extensionUri, 'media', 'main.js')
+        );
+
+        const imageUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', 'idle', 'magmastern.png')
+        );
+
+        return /* html */ `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Code Sensei UI</title>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background-color: #1e1e1e;
+                    color: white;
+                    font-family: sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: flex-start;
+                }
+
+                #avatar-container {
+                    margin-top: 1rem;
+                    text-align: center;
+                }
+
+                #root {
+                    width: 100%;
+                    max-width: 600px;
+                    margin-top: 2rem;
+                }
+
+                img {
+                    max-width: 100%;
+                    max-height: 250px;
+                    object-fit: contain;
+                    user-select: none;
+                    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.4));
+                }
+            </style>
+        </head>
+        <body>
+            <div id="avatar-container">
+                <img src="${imageUri}" alt="Code Sensei Avatar" />
+            </div>
+            <div id="root"></div>
+            <script type="module" src="${scriptUri}"></script>
+        </body>
+        </html>
+        `;
+    }
+
     /**
      * Generates the HTML content for the avatar webview.
      */
-    function getAvatarWebviewContent(webviewUri: vscode.Uri) {
+    function getAvatarWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri) {
+        const imageUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', 'idle', 'magmastern.png')
+        );
+
         return `
         <!DOCTYPE html>
         <html lang="en">
@@ -280,7 +369,7 @@ export function activate(context: vscode.ExtensionContext) {
             </style>
         </head>
         <body>
-            <img src="${webviewUri}" alt="Code Sensei Avatar" />
+            <img src="${imageUri}" alt="Code Sensei Avatar" />
         </body>
         </html>`;
     }
