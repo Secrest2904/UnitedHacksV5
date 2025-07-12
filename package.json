@@ -39,7 +39,11 @@
   "devDependencies": {
     "@types/dotenv": "^6.1.1",
     "@types/mocha": "^10.0.10",
+<<<<<<< HEAD
     "@types/node": "^20.19.7",
+=======
+    "@types/node": "20.x",
+>>>>>>> d1fe31951aa9ccd66be9042f7f5d335695d17d8c
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/vscode": "^1.102.0",
@@ -55,6 +59,10 @@
     "axios": "^1.10.0",
     "dotenv": "^17.2.0",
     "openai": "^5.9.0",
+<<<<<<< HEAD
+=======
+    "reach": "^1.0.1",
+>>>>>>> d1fe31951aa9ccd66be9042f7f5d335695d17d8c
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "shadcn": "^2.9.0"
