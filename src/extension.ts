@@ -15,6 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage('Code Sensei: Stored API Key has been cleared.');
         })
     );
+
     // --- STATE VARIABLES ---
     let writtenCode: string[] = [];
     let pastedCode: string[] = [];
@@ -52,6 +53,8 @@ export function activate(context: vscode.ExtensionContext) {
             });
         })
     );
+    
+    vscode.commands.executeCommand('code-sensei.showAvatar');
 
     function indexPastedCode(content: string) {
         if (content.trim().length > 0) { pastedCode.push(content); }
