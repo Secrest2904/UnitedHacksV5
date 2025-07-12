@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import axios from 'axios';
+// import axios from 'axios'; // No longer needed
+import OpenAI from 'openai'; // Import the new OpenAI SDK
 
-const MISTRAL_API_KEY_SECRET_KEY = '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';
+const MISTRAL_API_KEY_SECRET_KEY = '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'; // We'll keep the same secret key name
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -9,12 +10,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     let writtenCode: string[] = [];
     let pastedCode: string[] = [];
-    let isPasting = false; // Flag to track when a paste is in progress
+    let isPasting = false;
 
-    // --- Paste Handler and Explainer ---
     context.subscriptions.push(
         vscode.commands.registerCommand('editor.action.clipboardPasteAction', async () => {
-            console.log('PASTE COMMAND TRIGGERED.'); // <-- DIAGNOSTIC LOG
+            console.log('PASTE COMMAND TRIGGERED.');
             const editor = vscode.window.activeTextEditor;
             if (!editor) {
                 return vscode.commands.executeCommand('default:paste');
@@ -31,7 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
             indexPastedCode(clipboardContent);
 
             if (!clipboardContent.trim()) {
-                console.log('Paste is empty, skipping explanation.'); // <-- DIAGNOSTIC LOG
+                console.log('Paste is empty, skipping explanation.');
                 return;
             }
 
@@ -60,7 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
                     }
                 });
             } catch (error) {
-                console.error('Error during withProgress explanation flow:', error); // <-- DIAGNOSTIC LOG
+                console.error('Error during withProgress explanation flow:', error);
                 vscode.window.showErrorMessage('An error occurred while fetching the explanation.');
             }
         })
@@ -72,16 +72,14 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
 
-    // --- Logic for detecting typed text ---
     vscode.workspace.onDidChangeTextDocument(event => {
         if (isPasting) {
             return;
         }
-
         if (event.contentChanges.length > 0 && event.reason !== vscode.TextDocumentChangeReason.Undo && event.reason !== vscode.TextDocumentChangeReason.Redo) {
             event.contentChanges.forEach(change => {
                 if (change.text.length > 0) {
-                    console.log(`TYPING DETECTED: ${change.text}`); // <-- DIAGNOSTIC LOG
+                    console.log(`TYPING DETECTED: ${change.text}`);
                     writtenCode.push(change.text);
                 }
             });
@@ -92,7 +90,6 @@ export function activate(context: vscode.ExtensionContext) {
         const writtenLength = writtenCode.join('').length;
         const pastedLength = pastedCode.join('').length;
         const totalLength = writtenLength + pastedLength;
-
         if (totalLength === 0) {
             return 1;
         }
@@ -110,11 +107,10 @@ export function activate(context: vscode.ExtensionContext) {
         statusBar.show();
     }
 
-    console.log('STATUS BAR: Initializing...'); // <-- DIAGNOSTIC LOG
+    console.log('STATUS BAR: Initializing...');
     updateStatusBar();
     const intervalId = setInterval(updateStatusBar, 1000);
     context.subscriptions.push({ dispose: () => clearInterval(intervalId) });
-    console.log('STATUS BAR: Initialized and updating.'); // <-- DIAGNOSTIC LOG
 
     const disposable = vscode.commands.registerCommand('code-sensei.helloWorld', () => {
         vscode.window.showInformationMessage('Hello World from Code Sensei!');
@@ -128,12 +124,12 @@ export function activate(context: vscode.ExtensionContext) {
 async function getApiKey(context: vscode.ExtensionContext): Promise<string | undefined> {
     let apiKey = await context.secrets.get(MISTRAL_API_KEY_SECRET_KEY);
     if (!apiKey) {
-        console.log('API Key not found. Prompting user.'); // <-- DIAGNOSTIC LOG
+        console.log('API Key not found. Prompting user.');
         apiKey = await vscode.window.showInputBox({
-            prompt: 'Please enter your OpenRouter (MistralAI) API Key',
+            prompt: 'Please enter your OpenRouter API Key',
             password: true,
             ignoreFocusOut: true,
-            placeHolder: 'sk-or-mstr-...'
+            placeHolder: 'sk-or-...'
         });
         if (apiKey) {
             await context.secrets.store(MISTRAL_API_KEY_SECRET_KEY, apiKey);
@@ -146,37 +142,59 @@ async function getApiKey(context: vscode.ExtensionContext): Promise<string | und
     return apiKey;
 }
 
+/**
+ * Sends the code to the OpenRouter API using the OpenAI SDK.
+ * @param code The code snippet to explain.
+ * @param apiKey The user's OpenRouter API key.
+ * @returns The explanation text or null if an error occurs.
+ */
 async function getCodeExplanation(code: string, apiKey: string): Promise<string | null> {
-    const apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+    // --- THIS FUNCTION IS NOW UPDATED ---
+    
+    // 1. Initialize the OpenAI client to point to OpenRouter
+    const openai = new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1/",
+        apiKey: apiKey,
+        defaultHeaders: {
+            // Optional headers to identify your app on OpenRouter rankings
+            //"HTTP-Referer": "", // Replace with your repo
+            //"X-Title": "Code Sensei VSCode Extension", // Replace with your app name
+        },
+    });
+
     try {
-        const response = await axios.post(apiUrl, {
-            model: 'mistralai/mistral-7b-instruct',
-            messages: [{
-                role: 'system',
-                content: 'You are an expert programmer. Explain the following code snippet clearly and concisely. Break down your explanation into short, easy-to-understand paragraphs of 3-4 sentences each.'
-            }, {
-                role: 'user',
-                content: `Explain this code:\n\n\`\`\`\n${code}\n\`\`\``
-            }]
-        }, {
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            }
+        // 2. Call the chat completions endpoint with the new model
+        const completion = await openai.chat.completions.create({
+            model: "tngtech/deepseek-r1t2-chimera:free", // The new model you requested
+            messages: [
+                {
+                    role: "system",
+                    content: "You are an expert programmer. Explain the following code snippet clearly and concisely. Break down your explanation into short, easy-to-understand paragraphs."
+                },
+                {
+                    role: "user",
+                    content: `Explain this code:\n\n\`\`\`\n${code}\n\`\`\``
+                }
+            ],
         });
-        return response.data?.choices?.[0]?.message?.content || null;
+
+        // 3. Return the response content
+        return completion.choices[0]?.message?.content || null;
+
     } catch (error) {
-        console.error("API Call Error:", error);
-        if (axios.isAxiosError(error) && error.response) {
-            const errorMessage = `API Error: ${error.response.status}. ${error.response.data?.error?.message || 'Check the Output panel for details.'}`;
-            vscode.window.showErrorMessage(errorMessage);
-            console.error('API Response Data:', error.response.data);
+        console.error("OpenRouter API Call Error:", error);
+        // The OpenAI SDK throws detailed errors, so we can display them.
+        if (error instanceof OpenAI.APIError) {
+             vscode.window.showErrorMessage(`API Error: ${error.status} - ${error.name}. ${error.message}`);
+        } else {
+             vscode.window.showErrorMessage('An unknown error occurred while contacting the API.');
         }
         return null;
     }
 }
 
 async function showExplanationInChunks(explanation: string) {
+    // Split by two newlines to better separate paragraphs
     const chunks = explanation.split('\n\n').filter(p => p.trim().length > 0);
     for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
