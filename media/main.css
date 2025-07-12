@@ -1,3 +1,4 @@
+/* src/webview/ui/styles.css */
 #avatar-container {
   position: fixed;
   bottom: 24px;
@@ -7,7 +8,6 @@
   user-select: none;
   text-align: center;
 }
-
 .speech-bubble {
   background-color: white;
   border: 2px solid #888;
@@ -21,7 +21,6 @@
   position: relative;
   display: inline-block;
 }
-
 .code-ratio-container {
   margin-top: 16px;
   padding: 10px;
@@ -30,7 +29,6 @@
   font-family: sans-serif;
   border-radius: 8px;
 }
-
 .progress-bar {
   height: 10px;
   background: #444;
@@ -38,7 +36,6 @@
   overflow: hidden;
   margin-top: 6px;
 }
-
 .progress-bar-fill {
   height: 100%;
   background: #4caf50;
