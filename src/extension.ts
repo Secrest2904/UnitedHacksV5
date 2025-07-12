@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 // import axios from 'axios'; // No longer needed
 import OpenAI from 'openai'; // Import the new OpenAI SDK
 
-const MISTRAL_API_KEY_SECRET_KEY = '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'; // We'll keep the same secret key name
+const MISTRAL_API_KEY_SECRET_KEY = 'lmfaooooo'; // We'll keep the same secret key name
 
 export function activate(context: vscode.ExtensionContext) {
 
