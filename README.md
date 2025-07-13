@@ -1,71 +1,60 @@
-# code-sensei README
+# Code Sensei – Your AI Coding Mentor
 
-This is the README for your extension "code-sensei". After writing up a brief description, we recommend including the following sections.
+Code Sensei is a **Visual Studio Code extension** that aims to bridge the gap between AI-assisted coding and genuine understanding. With the rise of AI-generated code snippets, developers often copy-paste solutions without fully grasping how they work.
 
-## Features
+**Code Sensei** makes that learning process engaging by:
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+-  **Detecting pasted vs. handwritten code**
+-  **Reacting with a dynamic, expressive mascot**
+-  **Explaining the pasted code using an AI model**
+-  **Quizzing the user to reinforce understanding**
 
 ---
 
-## Following extension guidelines
+## Mission
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+We believe that AI should **support** learning — not replace it. Code Sensei helps ensure developers truly understand what they’re writing by:
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+- Detecting copy/pasted code patterns vs. handwritten input
+- Providing clear explanations for pasted code
+- Generating personalized quizzes to test your comprehension
+- Adapting to your learning style and providing study plans
 
-## Working with Markdown
+All while being accompanied by a helpful and expressive mascot!
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+---
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+## Meet Your Coding Companion
 
-## For more information
+The Code Sensei mascot changes its expression based on your coding behavior:
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+| Emotion | Trigger | Example |
+|--------|---------|---------|
+|  Idle | Not typing for a while | ![Idle](./media/screenshots/focus.png) |
+|  Stern | Mostly pasting code | ![Stern](./media/screenshots/mad.png) |
+|  Happy | Mostly writing code | ![Happy](./media/screenshots/happy.png) |
 
-**Enjoy!**
+---
+
+## Features
+
+- **Dynamic Emotion Detection**  
+  A 200px avatar watches your coding style and reacts based on your % of pasted vs. handwritten code.
+
+- **Code Explanation**  
+  Paste a block of code and receive an instant, AI-powered breakdown of what it does and why it matters.
+
+- **Quizzes**  
+  After an explanation, take a quiz to reinforce your understanding — including multiple-choice, fill-in-the-blank, and coding questions.
+
+- **Learning History & Study Plans**  
+  Coming soon: track your past explanations and quiz results to build a personalized study roadmap.
+
+---
+
+## How It Works
+
+1. **Install the extension** in VS Code.
+2. **Paste code** into your editor — Code Sensei detects it and generates an explanation.
+3. **Interact** with the avatar and take a short quiz.
+4. **Improve** your understanding and reduce reliance on copy/paste.
