@@ -30,9 +30,15 @@ The Code Sensei mascot changes its expression based on your coding behavior:
 
 | Emotion | Trigger | Example |
 |--------|---------|---------|
-|  Idle | Not typing for a while | ![Idle](./media/screenshots/focus.png) |
-|  Stern | Mostly pasting code | ![Stern](./media/screenshots/mad.png) |
-|  Happy | Mostly writing code | ![Happy](./media/screenshots/happy.png) |
+|  Idle | Not typing for a while | 
+<img width="1199" height="398" alt="focus" src="https://github.com/user-attachments/assets/2334f8cd-40f1-4d53-bd76-d62ec9985e8e" />
+
+|  Stern | Mostly pasting code | 
+<img width="1198" height="394" alt="mad" src="https://github.com/user-attachments/assets/35e73a84-b018-4a6e-8301-01cf1890119b" />
+
+|  Happy | Mostly writing code | 
+<img width="1201" height="398" alt="happy" src="https://github.com/user-attachments/assets/5310a9f4-a3d2-492f-a658-f2a54a8afe20" />
+
 
 ---
 
