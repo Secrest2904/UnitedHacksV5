@@ -26,277 +26,6 @@
     mod
   ));
 
-  // node_modules/scheduler/cjs/scheduler.development.js
-  var require_scheduler_development = __commonJS({
-    "node_modules/scheduler/cjs/scheduler.development.js"(exports) {
-      "use strict";
-      (function() {
-        function performWorkUntilDeadline() {
-          needsPaint = false;
-          if (isMessageLoopRunning) {
-            var currentTime = exports.unstable_now();
-            startTime = currentTime;
-            var hasMoreWork = true;
-            try {
-              a: {
-                isHostCallbackScheduled = false;
-                isHostTimeoutScheduled && (isHostTimeoutScheduled = false, localClearTimeout(taskTimeoutID), taskTimeoutID = -1);
-                isPerformingWork = true;
-                var previousPriorityLevel = currentPriorityLevel;
-                try {
-                  b: {
-                    advanceTimers(currentTime);
-                    for (currentTask = peek(taskQueue); null !== currentTask && !(currentTask.expirationTime > currentTime && shouldYieldToHost()); ) {
-                      var callback = currentTask.callback;
-                      if ("function" === typeof callback) {
-                        currentTask.callback = null;
-                        currentPriorityLevel = currentTask.priorityLevel;
-                        var continuationCallback = callback(
-                          currentTask.expirationTime <= currentTime
-                        );
-                        currentTime = exports.unstable_now();
-                        if ("function" === typeof continuationCallback) {
-                          currentTask.callback = continuationCallback;
-                          advanceTimers(currentTime);
-                          hasMoreWork = true;
-                          break b;
-                        }
-                        currentTask === peek(taskQueue) && pop(taskQueue);
-                        advanceTimers(currentTime);
-                      } else pop(taskQueue);
-                      currentTask = peek(taskQueue);
-                    }
-                    if (null !== currentTask) hasMoreWork = true;
-                    else {
-                      var firstTimer = peek(timerQueue);
-                      null !== firstTimer && requestHostTimeout(
-                        handleTimeout,
-                        firstTimer.startTime - currentTime
-                      );
-                      hasMoreWork = false;
-                    }
-                  }
-                  break a;
-                } finally {
-                  currentTask = null, currentPriorityLevel = previousPriorityLevel, isPerformingWork = false;
-                }
-                hasMoreWork = void 0;
-              }
-            } finally {
-              hasMoreWork ? schedulePerformWorkUntilDeadline() : isMessageLoopRunning = false;
-            }
-          }
-        }
-        function push(heap, node) {
-          var index = heap.length;
-          heap.push(node);
-          a: for (; 0 < index; ) {
-            var parentIndex = index - 1 >>> 1, parent = heap[parentIndex];
-            if (0 < compare(parent, node))
-              heap[parentIndex] = node, heap[index] = parent, index = parentIndex;
-            else break a;
-          }
-        }
-        function peek(heap) {
-          return 0 === heap.length ? null : heap[0];
-        }
-        function pop(heap) {
-          if (0 === heap.length) return null;
-          var first = heap[0], last = heap.pop();
-          if (last !== first) {
-            heap[0] = last;
-            a: for (var index = 0, length = heap.length, halfLength = length >>> 1; index < halfLength; ) {
-              var leftIndex = 2 * (index + 1) - 1, left = heap[leftIndex], rightIndex = leftIndex + 1, right = heap[rightIndex];
-              if (0 > compare(left, last))
-                rightIndex < length && 0 > compare(right, left) ? (heap[index] = right, heap[rightIndex] = last, index = rightIndex) : (heap[index] = left, heap[leftIndex] = last, index = leftIndex);
-              else if (rightIndex < length && 0 > compare(right, last))
-                heap[index] = right, heap[rightIndex] = last, index = rightIndex;
-              else break a;
-            }
-          }
-          return first;
-        }
-        function compare(a, b) {
-          var diff = a.sortIndex - b.sortIndex;
-          return 0 !== diff ? diff : a.id - b.id;
-        }
-        function advanceTimers(currentTime) {
-          for (var timer = peek(timerQueue); null !== timer; ) {
-            if (null === timer.callback) pop(timerQueue);
-            else if (timer.startTime <= currentTime)
-              pop(timerQueue), timer.sortIndex = timer.expirationTime, push(taskQueue, timer);
-            else break;
-            timer = peek(timerQueue);
-          }
-        }
-        function handleTimeout(currentTime) {
-          isHostTimeoutScheduled = false;
-          advanceTimers(currentTime);
-          if (!isHostCallbackScheduled)
-            if (null !== peek(taskQueue))
-              isHostCallbackScheduled = true, isMessageLoopRunning || (isMessageLoopRunning = true, schedulePerformWorkUntilDeadline());
-            else {
-              var firstTimer = peek(timerQueue);
-              null !== firstTimer && requestHostTimeout(
-                handleTimeout,
-                firstTimer.startTime - currentTime
-              );
-            }
-        }
-        function shouldYieldToHost() {
-          return needsPaint ? true : exports.unstable_now() - startTime < frameInterval ? false : true;
-        }
-        function requestHostTimeout(callback, ms) {
-          taskTimeoutID = localSetTimeout(function() {
-            callback(exports.unstable_now());
-          }, ms);
-        }
-        "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(Error());
-        exports.unstable_now = void 0;
-        if ("object" === typeof performance && "function" === typeof performance.now) {
-          var localPerformance = performance;
-          exports.unstable_now = function() {
-            return localPerformance.now();
-          };
-        } else {
-          var localDate = Date, initialTime = localDate.now();
-          exports.unstable_now = function() {
-            return localDate.now() - initialTime;
-          };
-        }
-        var taskQueue = [], timerQueue = [], taskIdCounter = 1, currentTask = null, currentPriorityLevel = 3, isPerformingWork = false, isHostCallbackScheduled = false, isHostTimeoutScheduled = false, needsPaint = false, localSetTimeout = "function" === typeof setTimeout ? setTimeout : null, localClearTimeout = "function" === typeof clearTimeout ? clearTimeout : null, localSetImmediate = "undefined" !== typeof setImmediate ? setImmediate : null, isMessageLoopRunning = false, taskTimeoutID = -1, frameInterval = 5, startTime = -1;
-        if ("function" === typeof localSetImmediate)
-          var schedulePerformWorkUntilDeadline = function() {
-            localSetImmediate(performWorkUntilDeadline);
-          };
-        else if ("undefined" !== typeof MessageChannel) {
-          var channel = new MessageChannel(), port = channel.port2;
-          channel.port1.onmessage = performWorkUntilDeadline;
-          schedulePerformWorkUntilDeadline = function() {
-            port.postMessage(null);
-          };
-        } else
-          schedulePerformWorkUntilDeadline = function() {
-            localSetTimeout(performWorkUntilDeadline, 0);
-          };
-        exports.unstable_IdlePriority = 5;
-        exports.unstable_ImmediatePriority = 1;
-        exports.unstable_LowPriority = 4;
-        exports.unstable_NormalPriority = 3;
-        exports.unstable_Profiling = null;
-        exports.unstable_UserBlockingPriority = 2;
-        exports.unstable_cancelCallback = function(task) {
-          task.callback = null;
-        };
-        exports.unstable_forceFrameRate = function(fps) {
-          0 > fps || 125 < fps ? console.error(
-            "forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported"
-          ) : frameInterval = 0 < fps ? Math.floor(1e3 / fps) : 5;
-        };
-        exports.unstable_getCurrentPriorityLevel = function() {
-          return currentPriorityLevel;
-        };
-        exports.unstable_next = function(eventHandler) {
-          switch (currentPriorityLevel) {
-            case 1:
-            case 2:
-            case 3:
-              var priorityLevel = 3;
-              break;
-            default:
-              priorityLevel = currentPriorityLevel;
-          }
-          var previousPriorityLevel = currentPriorityLevel;
-          currentPriorityLevel = priorityLevel;
-          try {
-            return eventHandler();
-          } finally {
-            currentPriorityLevel = previousPriorityLevel;
-          }
-        };
-        exports.unstable_requestPaint = function() {
-          needsPaint = true;
-        };
-        exports.unstable_runWithPriority = function(priorityLevel, eventHandler) {
-          switch (priorityLevel) {
-            case 1:
-            case 2:
-            case 3:
-            case 4:
-            case 5:
-              break;
-            default:
-              priorityLevel = 3;
-          }
-          var previousPriorityLevel = currentPriorityLevel;
-          currentPriorityLevel = priorityLevel;
-          try {
-            return eventHandler();
-          } finally {
-            currentPriorityLevel = previousPriorityLevel;
-          }
-        };
-        exports.unstable_scheduleCallback = function(priorityLevel, callback, options) {
-          var currentTime = exports.unstable_now();
-          "object" === typeof options && null !== options ? (options = options.delay, options = "number" === typeof options && 0 < options ? currentTime + options : currentTime) : options = currentTime;
-          switch (priorityLevel) {
-            case 1:
-              var timeout = -1;
-              break;
-            case 2:
-              timeout = 250;
-              break;
-            case 5:
-              timeout = 1073741823;
-              break;
-            case 4:
-              timeout = 1e4;
-              break;
-            default:
-              timeout = 5e3;
-          }
-          timeout = options + timeout;
-          priorityLevel = {
-            id: taskIdCounter++,
-            callback,
-            priorityLevel,
-            startTime: options,
-            expirationTime: timeout,
-            sortIndex: -1
-          };
-          options > currentTime ? (priorityLevel.sortIndex = options, push(timerQueue, priorityLevel), null === peek(taskQueue) && priorityLevel === peek(timerQueue) && (isHostTimeoutScheduled ? (localClearTimeout(taskTimeoutID), taskTimeoutID = -1) : isHostTimeoutScheduled = true, requestHostTimeout(handleTimeout, options - currentTime))) : (priorityLevel.sortIndex = timeout, push(taskQueue, priorityLevel), isHostCallbackScheduled || isPerformingWork || (isHostCallbackScheduled = true, isMessageLoopRunning || (isMessageLoopRunning = true, schedulePerformWorkUntilDeadline())));
-          return priorityLevel;
-        };
-        exports.unstable_shouldYield = shouldYieldToHost;
-        exports.unstable_wrapCallback = function(callback) {
-          var parentPriorityLevel = currentPriorityLevel;
-          return function() {
-            var previousPriorityLevel = currentPriorityLevel;
-            currentPriorityLevel = parentPriorityLevel;
-            try {
-              return callback.apply(this, arguments);
-            } finally {
-              currentPriorityLevel = previousPriorityLevel;
-            }
-          };
-        };
-        "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop(Error());
-      })();
-    }
-  });
-
-  // node_modules/scheduler/index.js
-  var require_scheduler = __commonJS({
-    "node_modules/scheduler/index.js"(exports, module) {
-      "use strict";
-      if (false) {
-        module.exports = null;
-      } else {
-        module.exports = require_scheduler_development();
-      }
-    }
-  });
-
   // node_modules/react/cjs/react.development.js
   var require_react_development = __commonJS({
     "node_modules/react/cjs/react.development.js"(exports, module) {
@@ -1245,6 +974,277 @@
         module.exports = null;
       } else {
         module.exports = require_react_development();
+      }
+    }
+  });
+
+  // node_modules/scheduler/cjs/scheduler.development.js
+  var require_scheduler_development = __commonJS({
+    "node_modules/scheduler/cjs/scheduler.development.js"(exports) {
+      "use strict";
+      (function() {
+        function performWorkUntilDeadline() {
+          needsPaint = false;
+          if (isMessageLoopRunning) {
+            var currentTime = exports.unstable_now();
+            startTime = currentTime;
+            var hasMoreWork = true;
+            try {
+              a: {
+                isHostCallbackScheduled = false;
+                isHostTimeoutScheduled && (isHostTimeoutScheduled = false, localClearTimeout(taskTimeoutID), taskTimeoutID = -1);
+                isPerformingWork = true;
+                var previousPriorityLevel = currentPriorityLevel;
+                try {
+                  b: {
+                    advanceTimers(currentTime);
+                    for (currentTask = peek(taskQueue); null !== currentTask && !(currentTask.expirationTime > currentTime && shouldYieldToHost()); ) {
+                      var callback = currentTask.callback;
+                      if ("function" === typeof callback) {
+                        currentTask.callback = null;
+                        currentPriorityLevel = currentTask.priorityLevel;
+                        var continuationCallback = callback(
+                          currentTask.expirationTime <= currentTime
+                        );
+                        currentTime = exports.unstable_now();
+                        if ("function" === typeof continuationCallback) {
+                          currentTask.callback = continuationCallback;
+                          advanceTimers(currentTime);
+                          hasMoreWork = true;
+                          break b;
+                        }
+                        currentTask === peek(taskQueue) && pop(taskQueue);
+                        advanceTimers(currentTime);
+                      } else pop(taskQueue);
+                      currentTask = peek(taskQueue);
+                    }
+                    if (null !== currentTask) hasMoreWork = true;
+                    else {
+                      var firstTimer = peek(timerQueue);
+                      null !== firstTimer && requestHostTimeout(
+                        handleTimeout,
+                        firstTimer.startTime - currentTime
+                      );
+                      hasMoreWork = false;
+                    }
+                  }
+                  break a;
+                } finally {
+                  currentTask = null, currentPriorityLevel = previousPriorityLevel, isPerformingWork = false;
+                }
+                hasMoreWork = void 0;
+              }
+            } finally {
+              hasMoreWork ? schedulePerformWorkUntilDeadline() : isMessageLoopRunning = false;
+            }
+          }
+        }
+        function push(heap, node) {
+          var index = heap.length;
+          heap.push(node);
+          a: for (; 0 < index; ) {
+            var parentIndex = index - 1 >>> 1, parent = heap[parentIndex];
+            if (0 < compare(parent, node))
+              heap[parentIndex] = node, heap[index] = parent, index = parentIndex;
+            else break a;
+          }
+        }
+        function peek(heap) {
+          return 0 === heap.length ? null : heap[0];
+        }
+        function pop(heap) {
+          if (0 === heap.length) return null;
+          var first = heap[0], last = heap.pop();
+          if (last !== first) {
+            heap[0] = last;
+            a: for (var index = 0, length = heap.length, halfLength = length >>> 1; index < halfLength; ) {
+              var leftIndex = 2 * (index + 1) - 1, left = heap[leftIndex], rightIndex = leftIndex + 1, right = heap[rightIndex];
+              if (0 > compare(left, last))
+                rightIndex < length && 0 > compare(right, left) ? (heap[index] = right, heap[rightIndex] = last, index = rightIndex) : (heap[index] = left, heap[leftIndex] = last, index = leftIndex);
+              else if (rightIndex < length && 0 > compare(right, last))
+                heap[index] = right, heap[rightIndex] = last, index = rightIndex;
+              else break a;
+            }
+          }
+          return first;
+        }
+        function compare(a, b) {
+          var diff = a.sortIndex - b.sortIndex;
+          return 0 !== diff ? diff : a.id - b.id;
+        }
+        function advanceTimers(currentTime) {
+          for (var timer = peek(timerQueue); null !== timer; ) {
+            if (null === timer.callback) pop(timerQueue);
+            else if (timer.startTime <= currentTime)
+              pop(timerQueue), timer.sortIndex = timer.expirationTime, push(taskQueue, timer);
+            else break;
+            timer = peek(timerQueue);
+          }
+        }
+        function handleTimeout(currentTime) {
+          isHostTimeoutScheduled = false;
+          advanceTimers(currentTime);
+          if (!isHostCallbackScheduled)
+            if (null !== peek(taskQueue))
+              isHostCallbackScheduled = true, isMessageLoopRunning || (isMessageLoopRunning = true, schedulePerformWorkUntilDeadline());
+            else {
+              var firstTimer = peek(timerQueue);
+              null !== firstTimer && requestHostTimeout(
+                handleTimeout,
+                firstTimer.startTime - currentTime
+              );
+            }
+        }
+        function shouldYieldToHost() {
+          return needsPaint ? true : exports.unstable_now() - startTime < frameInterval ? false : true;
+        }
+        function requestHostTimeout(callback, ms) {
+          taskTimeoutID = localSetTimeout(function() {
+            callback(exports.unstable_now());
+          }, ms);
+        }
+        "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(Error());
+        exports.unstable_now = void 0;
+        if ("object" === typeof performance && "function" === typeof performance.now) {
+          var localPerformance = performance;
+          exports.unstable_now = function() {
+            return localPerformance.now();
+          };
+        } else {
+          var localDate = Date, initialTime = localDate.now();
+          exports.unstable_now = function() {
+            return localDate.now() - initialTime;
+          };
+        }
+        var taskQueue = [], timerQueue = [], taskIdCounter = 1, currentTask = null, currentPriorityLevel = 3, isPerformingWork = false, isHostCallbackScheduled = false, isHostTimeoutScheduled = false, needsPaint = false, localSetTimeout = "function" === typeof setTimeout ? setTimeout : null, localClearTimeout = "function" === typeof clearTimeout ? clearTimeout : null, localSetImmediate = "undefined" !== typeof setImmediate ? setImmediate : null, isMessageLoopRunning = false, taskTimeoutID = -1, frameInterval = 5, startTime = -1;
+        if ("function" === typeof localSetImmediate)
+          var schedulePerformWorkUntilDeadline = function() {
+            localSetImmediate(performWorkUntilDeadline);
+          };
+        else if ("undefined" !== typeof MessageChannel) {
+          var channel = new MessageChannel(), port = channel.port2;
+          channel.port1.onmessage = performWorkUntilDeadline;
+          schedulePerformWorkUntilDeadline = function() {
+            port.postMessage(null);
+          };
+        } else
+          schedulePerformWorkUntilDeadline = function() {
+            localSetTimeout(performWorkUntilDeadline, 0);
+          };
+        exports.unstable_IdlePriority = 5;
+        exports.unstable_ImmediatePriority = 1;
+        exports.unstable_LowPriority = 4;
+        exports.unstable_NormalPriority = 3;
+        exports.unstable_Profiling = null;
+        exports.unstable_UserBlockingPriority = 2;
+        exports.unstable_cancelCallback = function(task) {
+          task.callback = null;
+        };
+        exports.unstable_forceFrameRate = function(fps) {
+          0 > fps || 125 < fps ? console.error(
+            "forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported"
+          ) : frameInterval = 0 < fps ? Math.floor(1e3 / fps) : 5;
+        };
+        exports.unstable_getCurrentPriorityLevel = function() {
+          return currentPriorityLevel;
+        };
+        exports.unstable_next = function(eventHandler) {
+          switch (currentPriorityLevel) {
+            case 1:
+            case 2:
+            case 3:
+              var priorityLevel = 3;
+              break;
+            default:
+              priorityLevel = currentPriorityLevel;
+          }
+          var previousPriorityLevel = currentPriorityLevel;
+          currentPriorityLevel = priorityLevel;
+          try {
+            return eventHandler();
+          } finally {
+            currentPriorityLevel = previousPriorityLevel;
+          }
+        };
+        exports.unstable_requestPaint = function() {
+          needsPaint = true;
+        };
+        exports.unstable_runWithPriority = function(priorityLevel, eventHandler) {
+          switch (priorityLevel) {
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+              break;
+            default:
+              priorityLevel = 3;
+          }
+          var previousPriorityLevel = currentPriorityLevel;
+          currentPriorityLevel = priorityLevel;
+          try {
+            return eventHandler();
+          } finally {
+            currentPriorityLevel = previousPriorityLevel;
+          }
+        };
+        exports.unstable_scheduleCallback = function(priorityLevel, callback, options) {
+          var currentTime = exports.unstable_now();
+          "object" === typeof options && null !== options ? (options = options.delay, options = "number" === typeof options && 0 < options ? currentTime + options : currentTime) : options = currentTime;
+          switch (priorityLevel) {
+            case 1:
+              var timeout = -1;
+              break;
+            case 2:
+              timeout = 250;
+              break;
+            case 5:
+              timeout = 1073741823;
+              break;
+            case 4:
+              timeout = 1e4;
+              break;
+            default:
+              timeout = 5e3;
+          }
+          timeout = options + timeout;
+          priorityLevel = {
+            id: taskIdCounter++,
+            callback,
+            priorityLevel,
+            startTime: options,
+            expirationTime: timeout,
+            sortIndex: -1
+          };
+          options > currentTime ? (priorityLevel.sortIndex = options, push(timerQueue, priorityLevel), null === peek(taskQueue) && priorityLevel === peek(timerQueue) && (isHostTimeoutScheduled ? (localClearTimeout(taskTimeoutID), taskTimeoutID = -1) : isHostTimeoutScheduled = true, requestHostTimeout(handleTimeout, options - currentTime))) : (priorityLevel.sortIndex = timeout, push(taskQueue, priorityLevel), isHostCallbackScheduled || isPerformingWork || (isHostCallbackScheduled = true, isMessageLoopRunning || (isMessageLoopRunning = true, schedulePerformWorkUntilDeadline())));
+          return priorityLevel;
+        };
+        exports.unstable_shouldYield = shouldYieldToHost;
+        exports.unstable_wrapCallback = function(callback) {
+          var parentPriorityLevel = currentPriorityLevel;
+          return function() {
+            var previousPriorityLevel = currentPriorityLevel;
+            currentPriorityLevel = parentPriorityLevel;
+            try {
+              return callback.apply(this, arguments);
+            } finally {
+              currentPriorityLevel = previousPriorityLevel;
+            }
+          };
+        };
+        "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop(Error());
+      })();
+    }
+  });
+
+  // node_modules/scheduler/index.js
+  var require_scheduler = __commonJS({
+    "node_modules/scheduler/index.js"(exports, module) {
+      "use strict";
+      if (false) {
+        module.exports = null;
+      } else {
+        module.exports = require_scheduler_development();
       }
     }
   });
@@ -19576,86 +19576,139 @@
   });
 
   // src/webview/ui/main.tsx
-  var import_client = __toESM(require_client());
-
-  // src/webview/ui/ExplainButton.tsx
-  var import_jsx_runtime = __toESM(require_jsx_runtime());
-  var ExplainButton = ({ onClick }) => {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick, style: { padding: "10px 20px", fontSize: "16px", cursor: "pointer" }, children: "\u{1F50D} Explain Selected Code" }) });
-  };
-  var ExplainButton_default = ExplainButton;
-
-  // src/webview/ui/Avatar.tsx
   var import_react = __toESM(require_react());
-  var import_jsx_runtime2 = __toESM(require_jsx_runtime());
-  var vscode = acquireVsCodeApi();
-  function Avatar() {
-    const [imageSrc, setImageSrc] = (0, import_react.useState)("");
-    const [altText, setAltText] = (0, import_react.useState)("");
-    const [bubbleText, setBubbleText] = (0, import_react.useState)("");
-    const [bubbleVisible, setBubbleVisible] = (0, import_react.useState)(false);
-    const idleTimer = (0, import_react.useRef)(null);
-    const sendEmotionRequest = (emotion) => {
-      vscode.postMessage({ command: "emotion", emotion });
-    };
-    const resetIdleTimer = () => {
-      if (idleTimer.current) clearTimeout(idleTimer.current);
-      idleTimer.current = setTimeout(() => {
-        sendEmotionRequest("idle");
-      }, 1e3 * 60 * 2);
-    };
-    const onAvatarClick = () => {
-      sendEmotionRequest("attentive");
-      setBubbleVisible((prev) => !prev);
-      resetIdleTimer();
-    };
+  var import_client = __toESM(require_client());
+  var import_jsx_runtime = __toESM(require_jsx_runtime());
+  var vscode = window.acquireVsCodeApi();
+  var App = () => {
+    const [view, setView] = (0, import_react.useState)("IDLE");
+    const [explanation, setExplanation] = (0, import_react.useState)("");
+    const [quizQuestions, setQuizQuestions] = (0, import_react.useState)([]);
+    const [quizResult, setQuizResult] = (0, import_react.useState)(null);
+    const [educationPlan, setEducationPlan] = (0, import_react.useState)(null);
     (0, import_react.useEffect)(() => {
       const handleMessage = (event) => {
-        const { image, alt, message } = event.data;
-        if (image) setImageSrc(image);
-        if (alt) setAltText(alt);
-        if (message) {
-          setBubbleText(message);
-          setBubbleVisible(true);
+        const message = event.data;
+        console.log("\u{1F4EC} Message received in webview:", message);
+        switch (message.command) {
+          case "showExplanation":
+            setExplanation(message.data);
+            setView("EXPLANATION");
+            break;
+          case "startQuiz":
+            setQuizQuestions(message.data.questions);
+            setView("QUIZ");
+            break;
+          case "showQuizResult":
+            setQuizResult(message.data);
+            setView("QUIZ_RESULT");
+            break;
+          case "showEducationPlan":
+            setEducationPlan(message.data);
+            setView("EDUCATION_PLAN");
+            break;
         }
-        resetIdleTimer();
       };
       window.addEventListener("message", handleMessage);
-      resetIdleTimer();
       return () => window.removeEventListener("message", handleMessage);
     }, []);
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { id: "avatar-container", onClick: onAvatarClick, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("img", { src: imageSrc, alt: altText, width: 200, draggable: false }),
-      bubbleVisible && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "speech-bubble", children: bubbleText })
-    ] });
-  }
-
-  // src/webview/ui/main.tsx
-  var import_jsx_runtime3 = __toESM(require_jsx_runtime());
-  var App = () => {
-    const sendMessageToExtension = () => {
-      const vscode2 = acquireVsCodeApi();
-      vscode2.postMessage({ type: "EXPLAIN_SELECTED_CODE" });
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { id: "main-container", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "content-area", children: [
+      view === "IDLE" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(IdleView, {}),
+      view === "EXPLANATION" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ExplanationView, { text: explanation }),
+      view === "QUIZ" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QuizView, { questions: quizQuestions }),
+      view === "QUIZ_RESULT" && quizResult && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(QuizResultView, { result: quizResult }),
+      view === "EDUCATION_PLAN" && educationPlan && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EducationPlanView, { plan: educationPlan })
+    ] }) });
+  };
+  var IdleView = () => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "\u{1F9E0} AI Mentor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Paste a block of code into your editor, and I'll explain it to you. Or select code and click below." }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => vscode.postMessage({ command: "explainSelectedCode" }), children: "Explain Selected Code" })
+  ] });
+  var ExplanationView = ({ text }) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "Code Explanation" }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "explanation-text", children: text }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => vscode.postMessage({ command: "startQuiz" }), children: "Start Quiz" })
+  ] });
+  var QuizView = ({ questions }) => {
+    const handleSubmit = (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const answers = {};
+      for (let i = 0; i < form.elements.length; i++) {
+        const element = form.elements[i];
+        if (element instanceof HTMLInputElement) {
+          if (element.type === "radio") {
+            if (element.checked) {
+              answers[element.name] = element.value;
+            }
+          } else if (element.type !== "submit") {
+            answers[element.name] = element.value;
+          }
+        } else if (element instanceof HTMLTextAreaElement) {
+          answers[element.name] = element.value;
+        }
+      }
+      vscode.postMessage({ command: "submitQuiz", answers });
     };
-    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { padding: "1rem", fontFamily: "sans-serif", color: "white", backgroundColor: "#1e1e1e" }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Avatar, {}),
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h2", { children: "\u{1F9E0} AI Mentor" }),
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { children: "Select some code in your editor, then click the button below to get an explanation." }),
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ExplainButton_default, { onClick: sendMessageToExtension })
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", { onSubmit: handleSubmit, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "Comprehension Quiz" }),
+      questions.map((q, index) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "question-block", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h3", { children: [
+          "Question ",
+          index + 1,
+          ": ",
+          q.question
+        ] }),
+        q.type === "mcq" && q.options?.map((opt) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "radio", name: `q${index}`, value: opt, required: true }),
+          " ",
+          opt
+        ] }, opt)),
+        q.type === "fill-in-the-blank" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", name: `q${index}`, placeholder: "Your answer...", required: true }),
+        q.type === "coding" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("textarea", { name: `q${index}`, rows: 5, placeholder: "Write your code here...", required: true })
+      ] }, index)),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "submit", children: "Submit Answers" })
     ] });
   };
+  var QuizResultView = ({ result }) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "Quiz Result" }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { className: "score", children: [
+      "You scored: ",
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: result.score })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "feedback", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("em", { children: [
+      '"',
+      result.feedback,
+      '"'
+    ] }) }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => vscode.postMessage({ command: "generateEducationPlan" }), children: "Create My Education Plan" })
+  ] });
+  var EducationPlanView = ({ plan }) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "education-plan", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "Your Personalized Education Plan" }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "plan-section", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h3", { children: "Topics to Study" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { children: plan.topicsToStudy.map((topic) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: topic }, topic)) })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "plan-section", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h3", { children: "Suggested Assignments" }),
+      plan.assignments.map((assignment) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "assignment-card", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h4", { children: assignment.title }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: assignment.description })
+      ] }, assignment.title))
+    ] })
+  ] });
   var rootElement = document.getElementById("root");
   if (rootElement) {
-    const root = (0, import_client.createRoot)(rootElement);
-    root.render(/* @__PURE__ */ (0, import_jsx_runtime3.jsx)(App, {}));
+    (0, import_client.createRoot)(rootElement).render(/* @__PURE__ */ (0, import_jsx_runtime.jsx)(App, {}));
   }
 })();
 /*! Bundled license information:
 
-scheduler/cjs/scheduler.development.js:
+react/cjs/react.development.js:
   (**
    * @license React
-   * scheduler.development.js
+   * react.development.js
    *
    * Copyright (c) Meta Platforms, Inc. and affiliates.
    *
@@ -19663,10 +19716,10 @@ scheduler/cjs/scheduler.development.js:
    * LICENSE file in the root directory of this source tree.
    *)
 
-react/cjs/react.development.js:
+scheduler/cjs/scheduler.development.js:
   (**
    * @license React
-   * react.development.js
+   * scheduler.development.js
    *
    * Copyright (c) Meta Platforms, Inc. and affiliates.
    *
