@@ -23,9 +23,9 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // --- PASTE DETECTION AND EXPLANATION ---
+    // --- PASTE AND EXPLAIN COMMAND ---
     context.subscriptions.push(
-        vscode.commands.registerCommand('editor.action.clipboardPasteAction', async () => {
+        vscode.commands.registerCommand('code-sensei.pasteAndExplain', async () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) { return vscode.commands.executeCommand('default:paste'); }
             const clipboardContent = await vscode.env.clipboard.readText();
@@ -73,19 +73,21 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
 
-    // --- TYPING DETECTION ---
+    // --- CHANGE DETECTION (typing vs. paste) ---
     vscode.workspace.onDidChangeTextDocument(event => {
-        if (isPasting) { return; }
-        if (event.contentChanges.length > 0 &&
-            event.reason !== vscode.TextDocumentChangeReason.Undo &&
-            event.reason !== vscode.TextDocumentChangeReason.Redo
-        ) {
-            event.contentChanges.forEach(change => {
-                if (change.text.length > 0) {
-                    writtenCode.push(change.text);
-                }
-            });
-        }
+        // Capture each content change
+        event.contentChanges.forEach(change => {
+            const text = change.text;
+            if (!text) {
+                return;
+            }
+            // Heuristic: treat multi-character inserts as paste
+            if (text.length > 1) {
+                indexPastedCode(text);
+            } else {
+                writtenCode.push(text);
+            }
+        });
     });
 
     // --- STATUS BAR ---
@@ -117,30 +119,27 @@ export function activate(context: vscode.ExtensionContext) {
             panel.webview.html = getAvatarWebviewContent(panel.webview, context.extensionUri);
             panel.webview.onDidReceiveMessage(async message => {
                 if (message.command === 'explainSelectedCode') {
-                    const editor = vscode.window.activeTextEditor!;
-                    const selectedCode = editor.document.getText(editor.selection);
-                    if (!selectedCode.trim()) {
-                        vscode.window.showErrorMessage('Please select some code to explain.');
+                    // Use the last pasted code snippet instead of requiring a selection
+                    const codeToExplain = pastedCode.length > 0 ? pastedCode[pastedCode.length - 1] : '';
+                    if (!codeToExplain.trim()) {
+                        vscode.window.showErrorMessage('No pasted code to explain.');
                         return;
                     }
                     const apiKey = await getApiKey();
                     if (!apiKey) {
                         return;
                     }
-
                     await vscode.window.withProgress({
                         location: vscode.ProgressLocation.Notification,
                         title: "Code Sensei: Generating explanation...",
                         cancellable: true
                     }, async (progress, token) => {
-                        const explanation = await getCodeExplanation(selectedCode, apiKey, token);
+                        const explanation = await getCodeExplanation(codeToExplain, apiKey, token);
                         if (token.isCancellationRequested || !explanation) {
                             return;
                         }
-
                         lastExplanation = explanation;
-
-                        // --- PRELOAD QUIZ FOR SELECTED CODE ---
+                        // Preload quiz
                         generateQuiz(lastExplanation, apiKey)
                             .then(data => {
                                 if (data?.questions) {
@@ -148,7 +147,7 @@ export function activate(context: vscode.ExtensionContext) {
                                 }
                             })
                             .catch(err => console.error('Quiz pre-generation failed:', err));
-
+                        // Display explanation
                         await showExplanationInChunks(explanation);
                     });
                 }
@@ -296,6 +295,7 @@ export function activate(context: vscode.ExtensionContext) {
                     border-radius: 4px;
                     background-color: #252526;
                     color: white;
+                    white-space: pre-wrap;
                     overflow-y: auto;
                     word-wrap: break-word;
                 }
@@ -310,6 +310,11 @@ export function activate(context: vscode.ExtensionContext) {
                 }
                 button:hover {
                     background-color: #005a9e;
+                }
+                #buttonContainer {
+                    display: flex;
+                    gap: 10px;
+                    margin-top: 10px;
                 }
             </style>
         </head>
@@ -334,9 +339,19 @@ export function activate(context: vscode.ExtensionContext) {
               Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
               Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
             </div>
-            <button onclick="vscode.postMessage({ command: 'explainSelectedCode' })">Explain Selected Code</button>
+            <div id="buttonContainer" style="display: flex; gap: 10px; margin-top: 10px;">
+                <button id="yesButton">Yes</button>
+                <button id="noButton">No</button>
+            </div>
             <script>
                 const vscode = acquireVsCodeApi();
+                document.getElementById('yesButton').addEventListener('click', () => {
+                    vscode.postMessage({ command: 'explainSelectedCode' });
+                });
+                document.getElementById('noButton').addEventListener('click', () => {
+                    const box = document.getElementById('senseiMessage');
+                    box.innerHTML += '<br>Great! Keep on being awesome';
+                });
             </script>
         </body>
         </html>
