@@ -26,12 +26,16 @@
       {
         "command": "code-sensei.clearApiKey",
         "title": "Code Sensei: Clear Stored API Key"
+      },
+      {
+        "command": "code-sensei.generateEducationPlan",
+        "title": "Code Sensei: Generate Education Plan"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && npm run build-ui",
     "build-ui": "node scripts/build-ui.js",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
@@ -42,24 +46,22 @@
     "@types/dotenv": "^6.1.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.19.7",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "@types/vscode": "^1.102.0",
-    "@typescript-eslint/eslint-plugin": "^8.31.1",
-    "@typescript-eslint/parser": "^8.31.1",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.25.6",
-    "eslint": "^9.25.1",
+    "eslint": "^8.56.0",
     "typescript": "^5.8.3"
   },
   "dependencies": {
     "axios": "^1.10.0",
     "dotenv": "^17.2.0",
     "openai": "^5.9.0",
-    "reach": "^1.0.1",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "shadcn": "^2.9.0"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }
