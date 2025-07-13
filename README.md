@@ -13,7 +13,7 @@ Catalyst is a **Visual Studio Code extension** that aims to bridge the gap betwe
 
 ## Mission
 
-We believe that AI should **support** learning — not replace it. Catalyst helps ensure developers truly understand what they’re writing by:
+We believe that AI should **support** learning, not replace it. Catalyst helps ensure developers truly understand what they’re writing by:
 
 - Detecting copy/pasted code patterns vs. handwritten input
 - Providing clear explanations for pasted code
@@ -48,7 +48,7 @@ The Catalyst mascot changes its expression based on your coding behavior:
   Paste a block of code and receive an instant, AI-powered breakdown of what it does and why it matters.
 
 - **Quizzes**
-  After an explanation, take a quiz to reinforce your understanding — including multiple-choice, fill-in-the-blank, and coding questions.
+  After an explanation, take a quiz to reinforce your understanding, including multiple-choice, fill-in-the-blank, and coding questions.
 
 - **Learning History & Study Plans**
   Coming soon: track your past explanations and quiz results to build a personalized study roadmap.
@@ -60,4 +60,4 @@ The Catalyst mascot changes its expression based on your coding behavior:
 1.  **Install the extension** in VS Code.
 2.  **Paste code** into your editor — Catalyst detects it and generates an explanation.
 3.  **Interact** with the avatar and take a short quiz.
-4.  **Improve** your understanding and reduce reliance on copy/paste.
+4. **Improve** your understanding and reduce reliance on copy/paste and upskill yourself with a custom-generated study plan.
