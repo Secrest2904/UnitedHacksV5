@@ -9,7 +9,7 @@ let avatarPanel: vscode.WebviewPanel | null = null;
 export function activate(context: vscode.ExtensionContext) {
 
     console.log('Congratulations, your extension "code-sensei" is now active!');
-  
+    
     context.subscriptions.push(
         vscode.commands.registerCommand('code-sensei.clearApiKey', async () => {
             await context.secrets.delete(API_SECRET_KEY_STORE);
@@ -84,7 +84,21 @@ export function activate(context: vscode.ExtensionContext) {
             const totalLength = writtenLength + pastedLength;
             const ratio = totalLength === 0 ? 1 : writtenLength / totalLength;
 
-            let emotionFolder = 'idle'; // fallback
+            let idleTimer: NodeJS.Timeout | null = null;
+
+            function resetIdleTimer() {
+                if (idleTimer) clearTimeout(idleTimer);
+                idleTimer = setTimeout(() => {
+                    if (avatarPanel) {
+                        const imageUri = avatarPanel.webview.asWebviewUri(
+                            vscode.Uri.joinPath(context.extensionUri, 'media', 'default_skin', 'idle', 'idle.png')
+                        );
+                        avatarPanel.webview.html = getAvatarWebviewContentFromUri(imageUri);
+                    }
+                }, 2 * 60 * 1000); // 2 minutes
+            }
+
+            let emotionFolder = 'idle'; // default
             if (ratio >= 0.95) emotionFolder = 'happy';
             else if (ratio >= 0.65) emotionFolder = 'confused';
             else emotionFolder = 'stern';
@@ -124,7 +138,7 @@ export function activate(context: vscode.ExtensionContext) {
                     font-family: sans-serif;
                 }
                 img {
-                    width: 1000px;
+                    width: 200px;
                     height: auto;
                     margin-bottom: 20px;
                     filter: drop-shadow(0 2px 5px rgba(0,0,0,0.4));
