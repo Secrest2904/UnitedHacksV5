@@ -49,9 +49,11 @@ export function activate(context: vscode.ExtensionContext) {
             if (!apiKey) { return; }
 
             // Ensure webview is visible before proceeding
-            if (!webviewPanel) {
+            if (!webviewPanel || webviewPanel.visible === false) {
                 await vscode.commands.executeCommand('code-sensei.showAvatar');
             }
+
+
 
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
@@ -91,7 +93,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         );
 
-        webviewPanel.webview.html = getAvatarWebviewContent(webviewPanel.webview, context.extensionUri);
+        webviewPanel.webview.html = getAvatarWebviewContentFromUri(webviewPanel.webview, context.extensionUri);
 
         webviewPanel.onDidDispose(() => {
             webviewPanel = undefined;
@@ -172,8 +174,36 @@ export function activate(context: vscode.ExtensionContext) {
         statusBar.text = `✍️ Hand-Written: ${(ratio * 100).toFixed(1)}%`;
         statusBar.show();
     }
+    let lastSentEmotion = '';
 
-    const intervalId = setInterval(updateStatusBar, 2000);
+    function updateAvatarBasedOnRatio() {
+        if (!webviewPanel) return;
+
+        const writtenLength = writtenCode.join('').length;
+        const pastedLength = pastedCode.join('').length;
+        const totalLength = writtenLength + pastedLength;
+        if (totalLength === 0) return;
+
+        const ratio = writtenLength / totalLength;
+        let emotion = 'idle';
+        if (ratio >= 0.95) emotion = 'happy';
+        else if (ratio < 0.65) emotion = 'stern';
+
+        if (emotion === lastSentEmotion) return; // don't resend the same
+        lastSentEmotion = emotion;
+
+        const emotionUri = webviewPanel.webview.asWebviewUri(
+            vscode.Uri.joinPath(context.extensionUri, 'media', 'default_skin', emotion, `${emotion}.png`)
+        );
+
+        console.log(`[Avatar] Sending Emotion "${emotion}" (${(ratio * 100).toFixed(1)}%) → ${emotionUri}`);
+
+        webviewPanel.webview.postMessage({
+            command: 'setEmotion',
+            image: emotionUri.toString()
+        });
+    }
+
     context.subscriptions.push({ dispose: () => clearInterval(intervalId) });
 
     // --- HELPER & API FUNCTIONS ---
@@ -324,17 +354,24 @@ export function activate(context: vscode.ExtensionContext) {
             return null;
         }
     }
+    const intervalId = setInterval(() => {
+        updateStatusBar();
+        updateAvatarBasedOnRatio();
+    }, 2000); // every 2 seconds
+
+    context.subscriptions.push({ dispose: () => clearInterval(intervalId) });
+
 }
 
 /**
  * Generates the HTML content for the webview, which serves as a container for the React app.
  */
-function getAvatarWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
-    // Get the URIs for the bundled React script and its stylesheet.
+function getAvatarWebviewContentFromUri(webview: vscode.Webview, extensionUri: vscode.Uri, emotion: string = 'idle'): string {
+    const imageUri = webview.asWebviewUri(
+        vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', emotion, `${emotion}.png`)
+    );
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'main.js'));
     const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'main.css'));
-
-    // Use a nonce to only allow specific scripts to be run
     const nonce = getNonce();
 
     return `
@@ -343,16 +380,39 @@ function getAvatarWebviewContent(webview: vscode.Webview, extensionUri: vscode.U
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; img-src ${webview.cspSource} blob: data:; script-src 'nonce-${nonce}';">
         <link href="${stylesUri}" rel="stylesheet">
         <title>Code Sensei</title>
+        <style>
+            body {
+                background-color: #1e1e1e;
+                color: white;
+                font-family: sans-serif;
+                margin: 0;
+                padding: 0 1rem;
+                overflow-x: hidden; /* prevents sideways scroll glitch */
+            }
+
+            img {
+                height: 200px;
+                max-width: 100%;
+                display: block;
+                margin: 1rem auto;
+            }
+
+            #root {
+                padding-bottom: 2rem;
+            }
+        </style>
     </head>
     <body>
+        <img src="${imageUri}" alt="Sensei" />
         <div id="root"></div>
         <script nonce="${nonce}" src="${scriptUri}"></script>
     </body>
     </html>`;
 }
+
 
 /**
  * Generates a random string to be used as a nonce for Content Security Policy.
