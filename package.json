@@ -28,8 +28,25 @@
         "title": "Code Sensei: Clear Stored API Key"
       },
       {
+        "command": "code-sensei.pasteAndExplain",
+        "title": "Code Sensei: Paste and Explain"
+      },
+      {
         "command": "code-sensei.generateEducationPlan",
         "title": "Code Sensei: Generate Education Plan"
+      }
+    ]
+    ,
+    "keybindings": [
+      {
+        "key": "ctrl+v",
+        "command": "code-sensei.pasteAndExplain",
+        "when": "editorTextFocus"
+      },
+      {
+        "key": "cmd+v",
+        "command": "code-sensei.pasteAndExplain",
+        "when": "editorTextFocus && isMac"
       }
     ]
   },

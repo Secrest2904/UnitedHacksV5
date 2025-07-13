@@ -1,62 +1,31 @@
+// File: webview/ui/Avatar.tsx
 import React, { useEffect, useState, useRef } from 'react';
 import './styles.css';
 
-declare function acquireVsCodeApi(): {
-  postMessage: (msg: any) => void;
-  getState: () => unknown;
-  setState: (state: unknown) => void;
-};
-
-const vscode = acquireVsCodeApi(); // Webview → Extension communication
+declare function acquireVsCodeApi(): any;
+const vscode = acquireVsCodeApi();
 
 export default function Avatar() {
-  const [imageSrc, setImageSrc] = useState<string>('');
-  const [altText, setAltText] = useState<string>('');
-  const [bubbleText, setBubbleText] = useState<string>('');
-  const [bubbleVisible, setBubbleVisible] = useState<boolean>(false);
+  const [imageSrc,setImageSrc] = useState('');
+  const [altText,setAltText] = useState('');
+  const [bubbleText,setBubbleText] = useState('');
+  const idleTimer = useRef<NodeJS.Timeout|null>(null);
 
-  const idleTimer = useRef<NodeJS.Timeout | null>(null);
-
-  // Trigger backend to send a new emotion/pose
-  const sendEmotionRequest = (emotion: string) => {
-    vscode.postMessage({ command: 'emotion', emotion });
-  };
-
-  const resetIdleTimer = () => {
-    if (idleTimer.current) clearTimeout(idleTimer.current);
-    idleTimer.current = setTimeout(() => {
-      sendEmotionRequest('idle');
-    }, 1000 * 60 * 2); // 2 minutes
-  };
-
-  const onAvatarClick = () => {
-    sendEmotionRequest('attentive');
-    setBubbleVisible((prev) => !prev);
-    resetIdleTimer();
-  };
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const { image, alt, message } = event.data;
-      if (image) setImageSrc(image);
-      if (alt) setAltText(alt);
-      if (message) {
-        setBubbleText(message);
-        setBubbleVisible(true);
-      }
-      resetIdleTimer();
+  useEffect(()=>{
+    const onMsg = (e:MessageEvent)=>{
+      console.log('Avatar got message:',e.data);
+      if(e.data.image) setImageSrc(e.data.image);
+      if(e.data.alt) setAltText(e.data.alt);
+      if(e.data.message) setBubbleText(e.data.message);
     };
-
-    window.addEventListener('message', handleMessage);
-    resetIdleTimer();
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+    window.addEventListener('message',onMsg);
+    return ()=> window.removeEventListener('message',onMsg);
+  },[]);
 
   return (
-    <div id="avatar-container" onClick={onAvatarClick}>
-      <img src={imageSrc} alt={altText} width={200} draggable={false} />
-      {bubbleVisible && <div className="speech-bubble">{bubbleText}</div>}
+    <div onClick={()=>{ vscode.postMessage({command:'emotion',emotion:'attentive'}); }}>
+      <img src={imageSrc} alt={altText} width={200} draggable={false}/>
+      {bubbleText && <div className="speech-bubble">{bubbleText}</div>}
     </div>
   );
 }

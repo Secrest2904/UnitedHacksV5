@@ -1,17 +1,15 @@
+// File: webview/ui/ExplainButton.tsx
 import React from 'react';
 
-interface ExplainButtonProps {
-  onClick: () => void;
-}
+interface Props { onClick(): void; }
 
-const ExplainButton: React.FC<ExplainButtonProps> = ({ onClick }) => {
+export default function ExplainButton({onClick}:Props) {
   return (
-    <div>
-      <button onClick={onClick} style={{ padding: '10px 20px', fontSize: '16px', cursor: 'pointer' }}>
-        🔍 Explain Selected Code
-      </button>
-    </div>
+    <button onClick={()=>{
+      console.log('🔵 ExplainButton clicked');
+      onClick();
+    }}>
+      🔍 Explain Selected Code
+    </button>
   );
-};
-
-export default ExplainButton;
+}

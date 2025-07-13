@@ -2,152 +2,129 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
-// This is a global declaration for the VS Code API
+// Expose VS Code API inside the webview
 declare global {
     interface Window {
-        acquireVsCodeApi(): {
-            postMessage: (msg: any) => void;
-            getState: () => any;
-            setState: (newState: any) => void;
-        };
+        acquireVsCodeApi(): { postMessage(msg: any): void; getState(): any; setState(s: any): void; };
     }
 }
-
-// ======================================================================
-//  THE FIX IS HERE:
-//  Acquire the vscode API *once* at the top level of the script.
-// ======================================================================
 const vscode = window.acquireVsCodeApi();
 
-// --- TYPE DEFINITIONS ---
+// View & data types
 type View = 'IDLE' | 'EXPLANATION' | 'QUIZ' | 'QUIZ_RESULT' | 'EDUCATION_PLAN';
+type QuizQuestion = { type: 'mcq'|'fill-in-the-blank'|'coding'; question: string; options?: string[] };
+type EducationPlan = { topicsToStudy: string[]; assignments: { title: string; description: string }[] };
 
-type QuizQuestion = {
-    type: 'mcq' | 'fill-in-the-blank' | 'coding';
-    question: string;
-    options?: string[];
-};
-
-type EducationPlan = {
-    topicsToStudy: string[];
-    assignments: { title: string; description: string }[];
-};
-
-// --- MAIN APP COMPONENT ---
 const App = () => {
     const [view, setView] = useState<View>('IDLE');
     const [explanation, setExplanation] = useState('');
     const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
-    const [quizResult, setQuizResult] = useState<{ score: string, feedback: string } | null>(null);
-    const [educationPlan, setEducationPlan] = useState<EducationPlan | null>(null);
+    const [quizResult, setQuizResult] = useState<{score:string;feedback:string}|null>(null);
+    const [educationPlan, setEducationPlan] = useState<EducationPlan|null>(null);
 
-    // --- MESSAGE LISTENER FROM EXTENSION ---
     useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-            const message = event.data;
-            // Add this log to see incoming messages in the webview dev tools
-            console.log("📬 Message received in webview:", message);
-            switch (message.command) {
+        const onMessage = (e: MessageEvent) => {
+            console.log('📬 webview received:', e.data);
+            const msg = e.data;
+            switch (msg.command) {
                 case 'showExplanation':
-                    setExplanation(message.data);
+                    setExplanation(msg.data);
                     setView('EXPLANATION');
                     break;
                 case 'startQuiz':
-                    setQuizQuestions(message.data.questions);
+                    setQuizQuestions(msg.data.questions);
                     setView('QUIZ');
                     break;
                 case 'showQuizResult':
-                    setQuizResult(message.data);
+                    setQuizResult(msg.data);
                     setView('QUIZ_RESULT');
                     break;
                 case 'showEducationPlan':
-                    setEducationPlan(message.data);
+                    setEducationPlan(msg.data);
                     setView('EDUCATION_PLAN');
                     break;
             }
         };
-
-        window.addEventListener('message', handleMessage);
-        return () => window.removeEventListener('message', handleMessage);
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
     }, []);
 
-    // --- UI RENDER LOGIC ---
     return (
         <div id="main-container">
             <div className="content-area">
-                {view === 'IDLE' && <IdleView />}
-                {view === 'EXPLANATION' && <ExplanationView text={explanation} />}
-                {view === 'QUIZ' && <QuizView questions={quizQuestions} />}
-                {view === 'QUIZ_RESULT' && quizResult && <QuizResultView result={quizResult} />}
-                {view === 'EDUCATION_PLAN' && educationPlan && <EducationPlanView plan={educationPlan} />}
+                {view === 'IDLE'            && <IdleView />}
+                {view === 'EXPLANATION'     && <ExplanationView text={explanation} />}
+                {view === 'QUIZ'            && <QuizView questions={quizQuestions} />}
+                {view === 'QUIZ_RESULT'     && quizResult   && <QuizResultView result={quizResult} />}
+                {view === 'EDUCATION_PLAN'  && educationPlan && <EducationPlanView plan={educationPlan} />}
             </div>
         </div>
     );
 };
 
-// --- VIEW COMPONENTS ---
-
 const IdleView = () => (
     <>
-        <h2>🧠 AI Mentor</h2>
-        <p>Paste a block of code into your editor, and I'll explain it to you. Or select code and click below.</p>
-        {/* This button demonstrates using the single `vscode` constant */}
-        <button onClick={() => vscode.postMessage({ command: 'explainSelectedCode' })}>
-            Explain Selected Code
-        </button>
+      <h2>🧠 AI Mentor</h2>
+      <p>Select some code in your editor, then:</p>
+      <button onClick={() => {
+        console.log('[Webview] IdleView → explainSelectedCode');
+        vscode.postMessage({ command: 'explainSelectedCode' });
+      }}>
+        🔍 Explain Selected Code
+      </button>
     </>
 );
 
 const ExplanationView = ({ text }: { text: string }) => (
     <>
-        <h2>Code Explanation</h2>
-        <p className="explanation-text">{text}</p>
-        <button onClick={() => vscode.postMessage({ command: 'startQuiz' })}>
-            Start Quiz
-        </button>
+      <h2>💡 Explanation</h2>
+      <pre className="explanation-text">{text}</pre>
+      <button onClick={() => {
+        console.log('[Webview] ExplanationView → startQuiz');
+        vscode.postMessage({ command: 'startQuiz' });
+      }}>
+        Start Quiz
+      </button>
     </>
 );
 
 const QuizView = ({ questions }: { questions: QuizQuestion[] }) => {
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        const answers: { [key: string]: string } = {};
-
-        for (let i = 0; i < form.elements.length; i++) {
-            const element = form.elements[i];
-
-            if (element instanceof HTMLInputElement) {
-                if (element.type === 'radio') {
-                    if (element.checked) {
-                        answers[element.name] = element.value;
-                    }
-                } else if (element.type !== 'submit') {
-                    answers[element.name] = element.value;
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const answers: any = {};
+        Array.from(form.elements).forEach(el => {
+            if (el instanceof HTMLInputElement && el.name) {
+                if (el.type === 'radio' && el.checked) {
+                    answers[el.name] = el.value;
+                } else if (el.type === 'text') {
+                    answers[el.name] = el.value;
                 }
             }
-            else if (element instanceof HTMLTextAreaElement) {
-                answers[element.name] = element.value;
+            if (el instanceof HTMLTextAreaElement && el.name) {
+                answers[el.name] = el.value;
             }
-        }
-
+        });
+        console.log('[Webview] QuizView → submitQuiz', answers);
         vscode.postMessage({ command: 'submitQuiz', answers });
     };
 
     return (
         <form onSubmit={handleSubmit}>
-            <h2>Comprehension Quiz</h2>
-            {questions.map((q, index) => (
-                <div key={index} className="question-block">
-                    <h3>Question {index + 1}: {q.question}</h3>
+            <h2>📝 Quiz</h2>
+            {questions.map((q, i) => (
+                <div key={i} className="question-block">
+                    <h3>Q{i+1}: {q.question}</h3>
                     {q.type === 'mcq' && q.options?.map(opt => (
-                        <label key={opt}><input type="radio" name={`q${index}`} value={opt} required /> {opt}</label>
+                        <label key={opt}>
+                          <input type="radio" name={`q${i}`} value={opt} required/> {opt}
+                        </label>
                     ))}
                     {q.type === 'fill-in-the-blank' && (
-                        <input type="text" name={`q${index}`} placeholder="Your answer..." required />
+                        <input type="text" name={`q${i}`} placeholder="Answer..." required/>
                     )}
                     {q.type === 'coding' && (
-                        <textarea name={`q${index}`} rows={5} placeholder="Write your code here..." required />
+                        <textarea name={`q${i}`} rows={4} placeholder="Your code..." required/>
                     )}
                 </div>
             ))}
@@ -156,42 +133,34 @@ const QuizView = ({ questions }: { questions: QuizQuestion[] }) => {
     );
 };
 
-const QuizResultView = ({ result }: { result: { score: string, feedback: string } }) => (
+const QuizResultView = ({ result }: { result: { score: string; feedback: string } }) => (
     <>
-        <h2>Quiz Result</h2>
-        <p className="score">You scored: <strong>{result.score}</strong></p>
-        <p className="feedback"><em>"{result.feedback}"</em></p>
-        <button onClick={() => vscode.postMessage({ command: 'generateEducationPlan' })}>
-            Create My Education Plan
-        </button>
+      <h2>🏆 Quiz Result</h2>
+      <p className="score">Score: <strong>{result.score}</strong></p>
+      <p className="feedback">“{result.feedback}”</p>
+      <button onClick={() => {
+        console.log('[Webview] QuizResultView → generateEducationPlan');
+        vscode.postMessage({ command: 'generateEducationPlan' });
+      }}>
+        Create Education Plan
+      </button>
     </>
 );
 
 const EducationPlanView = ({ plan }: { plan: EducationPlan }) => (
     <div className="education-plan">
-        <h2>Your Personalized Education Plan</h2>
-
-        <div className="plan-section">
-            <h3>Topics to Study</h3>
-            <ul>
-                {plan.topicsToStudy.map(topic => <li key={topic}>{topic}</li>)}
-            </ul>
+      <h2>📚 Education Plan</h2>
+      <h3>Topics to Study</h3>
+      <ul>{plan.topicsToStudy.map(t => <li key={t}>{t}</li>)}</ul>
+      <h3>Assignments</h3>
+      {plan.assignments.map(a => (
+        <div key={a.title} className="assignment-card">
+          <h4>{a.title}</h4>
+          <p>{a.description}</p>
         </div>
-
-        <div className="plan-section">
-            <h3>Suggested Assignments</h3>
-            {plan.assignments.map(assignment => (
-                <div key={assignment.title} className="assignment-card">
-                    <h4>{assignment.title}</h4>
-                    <p>{assignment.description}</p>
-                </div>
-            ))}
-        </div>
+      ))}
     </div>
 );
 
-
-const rootElement = document.getElementById('root');
-if (rootElement) {
-    createRoot(rootElement).render(<App />);
-}
+const root = document.getElementById('root');
+if (root) createRoot(root).render(<App />);
