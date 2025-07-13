@@ -3,7 +3,6 @@ import OpenAI from 'openai';
 import * as path from 'path';
 
 const API_SECRET_KEY_STORE = 'codesensei_api_key';
-let avatarPanel: vscode.WebviewPanel | null = null;
 
 // Define a type for our learning history items
 type LearningHistoryItem = {
@@ -13,9 +12,7 @@ type LearningHistoryItem = {
 };
 
 export function activate(context: vscode.ExtensionContext) {
-
     console.log('Congratulations, your extension "code-sensei" is now active!');
-
 
     // --- STATE VARIABLES ---
     let webviewPanel: vscode.WebviewPanel | undefined;
@@ -35,27 +32,9 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-<<<<<<< HEAD
-    // --- PASTE AND EXPLAIN COMMAND ---
-=======
-    // --- STATE VARIABLES ---
-    let writtenCode: string[] = [];
-    let pastedCode: string[] = [];
-    let isPasting = false;
-    let lastExplanation = '';
-    let quizQuestions: any = null;
-    const emotionImages = {
-      happy: 'happy/happy.png',
-      confused: 'confused/confused.png',
-      stern: 'stern/stern.png',
-      idle: 'idle/idle.png',
-    };
-
-    // --- PASTE DETECTION AND EXPLANATION ---
-
->>>>>>> 15b880682e437b9188bf8322064b0b3ee44bf6bd
+    // This command intercepts the user pasting code.
     context.subscriptions.push(
-        vscode.commands.registerCommand('code-sensei.pasteAndExplain', async () => {
+        vscode.commands.registerCommand('editor.action.clipboardPasteAction', async () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) { return vscode.commands.executeCommand('default:paste'); }
             const clipboardContent = await vscode.env.clipboard.readText();
@@ -69,9 +48,9 @@ export function activate(context: vscode.ExtensionContext) {
             const apiKey = await getApiKey();
             if (!apiKey) { return; }
 
-            // Ensure webview is visible
+            // Ensure webview is visible before proceeding
             if (!webviewPanel) {
-                vscode.commands.executeCommand('code-sensei.showAvatar');
+                await vscode.commands.executeCommand('code-sensei.showAvatar');
             }
 
             await vscode.window.withProgress({
@@ -95,6 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // This command shows the main webview panel.
     const showAvatarCommand = vscode.commands.registerCommand('code-sensei.showAvatar', () => {
         if (webviewPanel) {
             webviewPanel.reveal(vscode.ViewColumn.Beside);
@@ -117,9 +97,13 @@ export function activate(context: vscode.ExtensionContext) {
             webviewPanel = undefined;
         }, null, context.subscriptions);
 
-        // --- MESSAGE HANDLING FROM WEBVIEW ---
+        // Handles all messages sent from the React webview
         webviewPanel.webview.onDidReceiveMessage(async message => {
             switch (message.command) {
+                case 'explainSelectedCode':
+                    // This case can be expanded later if needed
+                    break;
+
                 case 'startQuiz':
                     if (!lastExplanation) {
                         vscode.window.showErrorMessage("No explanation available to generate a quiz from.");
@@ -161,124 +145,16 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
 
-<<<<<<< HEAD
-    // --- CHANGE DETECTION (typing vs. paste) ---
     vscode.workspace.onDidChangeTextDocument(event => {
-        // Capture each content change
-        event.contentChanges.forEach(change => {
-            const text = change.text;
-            if (!text) {
-                return;
-            }
-            // Heuristic: treat multi-character inserts as paste
-            if (text.length > 1) {
-                indexPastedCode(text);
-            } else {
-                writtenCode.push(text);
-            }
-        });
-=======
-    vscode.workspace.onDidChangeTextDocument(event => {
-
-        if (isPasting || !webviewPanel) { return; } // Don't track if pasting or panel isn't open
+        if (isPasting) { return; }
         if (event.contentChanges.length > 0 && event.reason !== vscode.TextDocumentChangeReason.Undo && event.reason !== vscode.TextDocumentChangeReason.Redo) {
-
-
             event.contentChanges.forEach(change => {
                 if (change.text.length > 0) {
                     writtenCode.push(change.text);
                 }
             });
-
-            const writtenLength = writtenCode.join('').length;
-            const pastedLength = pastedCode.join('').length;
-            const totalLength = writtenLength + pastedLength;
-            const ratio = totalLength === 0 ? 1 : writtenLength / totalLength;
-
-            let idleTimer: NodeJS.Timeout | null = null;
-
-            function resetIdleTimer() {
-                if (idleTimer) clearTimeout(idleTimer);
-                idleTimer = setTimeout(() => {
-                    if (avatarPanel) {
-                        const imageUri = avatarPanel.webview.asWebviewUri(
-                            vscode.Uri.joinPath(context.extensionUri, 'media', 'default_skin', 'idle', 'idle.png')
-                        );
-                        avatarPanel.webview.html = getAvatarWebviewContentFromUri(imageUri);
-                    }
-                }, 2 * 60 * 1000); // 2 minutes
-            }
-
-            let emotionFolder = 'idle'; // default
-            if (ratio >= 0.95) emotionFolder = 'happy';
-            else if (ratio >= 0.65) emotionFolder = 'confused';
-            else emotionFolder = 'stern';
-
-            // Set new image path
-            const imageUri = avatarPanel.webview.asWebviewUri(
-                vscode.Uri.joinPath(
-                    context.extensionUri,
-                    'media',
-                    'default_skin',
-                    emotionFolder,
-                    `${emotionFolder}.png`
-                )
-            );
-
-            // Replace the entire HTML to update the avatar image
-            avatarPanel.webview.html = getAvatarWebviewContentFromUri(imageUri);
         }
->>>>>>> 15b880682e437b9188bf8322064b0b3ee44bf6bd
     });
-    function getAvatarWebviewContentFromUri(imageUri: vscode.Uri): string {
-        return `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Code Sensei</title>
-            <style>
-                body {
-                    background: #1e1e1e;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    height: 100vh;
-                    margin: 0;
-                    font-family: sans-serif;
-                }
-                img {
-                    width: 200px;
-                    height: auto;
-                    margin-bottom: 20px;
-                    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.4));
-                }
-                button {
-                    padding: 10px 20px;
-                    font-size: 16px;
-                    border: none;
-                    border-radius: 5px;
-                    background-color: #007acc;
-                    color: white;
-                    cursor: pointer;
-                }
-                button:hover {
-                    background-color: #005a9e;
-                }
-            </style>
-        </head>
-        <body>
-            <img src="${imageUri}" alt="Code Sensei Avatar" />
-            <button onclick="vscode.postMessage({ command: 'explainSelectedCode' })">Explain Selected Code</button>
-            <script>
-                const vscode = acquireVsCodeApi();
-            </script>
-        </body>
-        </html>
-        `;
-    }
 
     // --- STATUS BAR ---
     const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -299,85 +175,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     const intervalId = setInterval(updateStatusBar, 2000);
     context.subscriptions.push({ dispose: () => clearInterval(intervalId) });
-
-
-<<<<<<< HEAD
-            panel.webview.html = getAvatarWebviewContent(panel.webview, context.extensionUri);
-            panel.webview.onDidReceiveMessage(async message => {
-                if (message.command === 'explainSelectedCode') {
-                    // Use the last pasted code snippet instead of requiring a selection
-                    const codeToExplain = pastedCode.length > 0 ? pastedCode[pastedCode.length - 1] : '';
-                    if (!codeToExplain.trim()) {
-                        vscode.window.showErrorMessage('No pasted code to explain.');
-=======
-    // --- AVATAR WEBVIEW (Unchanged) ---
-    const showAvatar = vscode.commands.registerCommand('code-sensei.showAvatar', () => {
-        avatarPanel = vscode.window.createWebviewPanel(
-            'codeSenseiAvatar',
-            'Code Sensei Avatar',
-            vscode.ViewColumn.Beside,
-            { enableScripts: true }
-        );
-
-        avatarPanel.webview.html = getAvatarWebviewContent(avatarPanel.webview, context.extensionUri);
-
-        avatarPanel.onDidDispose(() => {
-            avatarPanel = null;
-        });
-
-        avatarPanel.webview.onDidReceiveMessage(async message => {
-            if (message.command === 'explainSelectedCode') {
-                    const editor = vscode.window.activeTextEditor!;
-                    const selectedCode = editor.document.getText(editor.selection);
-                    if (!selectedCode.trim()) {
-                        vscode.window.showErrorMessage('Please select some code to explain.');
->>>>>>> 15b880682e437b9188bf8322064b0b3ee44bf6bd
-                        return;
-                    }
-                    const apiKey = await getApiKey();
-                    if (!apiKey) {
-                        return;
-                    }
-                    await vscode.window.withProgress({
-                        location: vscode.ProgressLocation.Notification,
-                        title: "Code Sensei: Generating explanation...",
-                        cancellable: true
-                    }, async (progress, token) => {
-<<<<<<< HEAD
-                        const explanation = await getCodeExplanation(codeToExplain, apiKey, token);
-                        if (token.isCancellationRequested || !explanation) {
-                            return;
-                        }
-                        lastExplanation = explanation;
-                        // Preload quiz
-                        generateQuiz(lastExplanation, apiKey)
-                            .then(data => {
-                                if (data?.questions) {
-                                    quizQuestions = data.questions;
-                                }
-                            })
-                            .catch(err => console.error('Quiz pre-generation failed:', err));
-                        // Display explanation
-                        await showExplanationInChunks(explanation);
-=======
-                        const explanation = await getCodeExplanation(selectedCode, apiKey, token);
-                        if (token.isCancellationRequested) {
-                            return;
-                        }
-                        if (explanation) {
-                            lastExplanation = explanation;
-                            await showExplanationInChunks(explanation);
-                        } else {
-                            vscode.window.showErrorMessage('Failed to get an explanation for the selected code.');
-                        }
->>>>>>> 15b880682e437b9188bf8322064b0b3ee44bf6bd
-                    });
-                }
-            });
-        }
-    );
-    context.subscriptions.push(showAvatar);
-
 
     // --- HELPER & API FUNCTIONS ---
     async function startQuiz(explanation: string) {
@@ -452,138 +249,6 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage('An API error occurred while fetching the explanation.');
             return null;
         }
-    }
-
-
-    async function showExplanationInChunks(explanation: string) {
-        const chunks = explanation.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-        for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
-            const isLastChunk = i === chunks.length - 1;
-            const buttonText = isLastChunk ? 'Start Quiz' : 'Next';
-            const choice = await vscode.window.showInformationMessage(chunk, { modal: true }, buttonText);
-            if (!choice) { return; }
-            if (choice === 'Start Quiz') {
-                vscode.commands.executeCommand('code-sensei.startQuiz');
-                break;
-            }
-        }
-    }
-    function getAvatarWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
-        const imageUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(extensionUri, 'media', 'default_skin', 'idle', 'idle.png')
-        );
-
-        return `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Code Sensei</title>
-            <style>
-                body {
-                    background: #1e1e1e;
-                    color: white;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    height: 100vh;
-                    margin: 0;
-                }
-                img {
-                    width: 1000px;
-                    height: auto;
-                    margin-bottom: 20px;
-                    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.4));
-                }
-<<<<<<< HEAD
-                #senseiMessage {
-                    width: 90%;
-                    max-height: 60%;
-                    margin: 10px 0;
-                    padding: 10px;
-                    border: 1px solid #3c3c3c;
-                    border-radius: 4px;
-                    background-color: #252526;
-                    color: white;
-                    white-space: pre-wrap;
-                    overflow-y: auto;
-                    word-wrap: break-word;
-                }
-=======
->>>>>>> 15b880682e437b9188bf8322064b0b3ee44bf6bd
-                button {
-                    padding: 10px 20px;
-                    font-size: 16px;
-                    border: none;
-                    border-radius: 5px;
-                    background-color: #007acc;
-                    color: white;
-                    cursor: pointer;
-                }
-                button:hover {
-                    background-color: #005a9e;
-                }
-                #buttonContainer {
-                    display: flex;
-                    gap: 10px;
-                    margin-top: 10px;
-                }
-            </style>
-        </head>
-        <body>
-            <img src="${imageUri}" alt="Code Sensei Avatar" />
-<<<<<<< HEAD
-            <div id="senseiMessage">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. 
-            </div>
-            <div id="buttonContainer" style="display: flex; gap: 10px; margin-top: 10px;">
-                <button id="yesButton">Yes</button>
-                <button id="noButton">No</button>
-            </div>
-            <script>
-                const vscode = acquireVsCodeApi();
-                document.getElementById('yesButton').addEventListener('click', () => {
-                    vscode.postMessage({ command: 'explainSelectedCode' });
-                });
-                document.getElementById('noButton').addEventListener('click', () => {
-                    const box = document.getElementById('senseiMessage');
-                    box.innerHTML += '<br>Great! Keep on being awesome';
-=======
-            <button onclick="vscode.postMessage({ command: 'explainSelectedCode' })">Explain Selected Code</button>
-            <script>
-                const vscode = acquireVsCodeApi();
-                window.addEventListener('message', event => {
-                    const { image, emotion } = event.data;
-                    if (image) {
-                        const img = document.querySelector("img");
-                        if (img) img.src = image;
-                    }
->>>>>>> 15b880682e437b9188bf8322064b0b3ee44bf6bd
-                });
-            </script>
-        </body>
-        </html>
-        `;
     }
 
     async function generateQuiz(explanationText: string, apiKey: string): Promise<any | null> {
@@ -661,9 +326,15 @@ export function activate(context: vscode.ExtensionContext) {
     }
 }
 
+/**
+ * Generates the HTML content for the webview, which serves as a container for the React app.
+ */
 function getAvatarWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+    // Get the URIs for the bundled React script and its stylesheet.
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'main.js'));
     const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'main.css'));
+
+    // Use a nonce to only allow specific scripts to be run
     const nonce = getNonce();
 
     return `
@@ -683,6 +354,9 @@ function getAvatarWebviewContent(webview: vscode.Webview, extensionUri: vscode.U
     </html>`;
 }
 
+/**
+ * Generates a random string to be used as a nonce for Content Security Policy.
+ */
 function getNonce() {
     let text = '';
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
