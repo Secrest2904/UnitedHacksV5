@@ -85,7 +85,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         webviewPanel = vscode.window.createWebviewPanel(
             'codeSenseiAvatar',
-            'Code Sensei',
+            'Catalyst',
             vscode.ViewColumn.Beside,
             {
                 enableScripts: true,
